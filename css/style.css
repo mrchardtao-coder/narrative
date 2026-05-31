@@ -1,0 +1,1151 @@
+/* ========================================
+   交互式叙事 PWA — 样式
+   暗色阅读主题，移动端优先
+   ======================================== */
+
+:root {
+  --bg-deep: #0d0d1a;
+  --bg-surface: #141428;
+  --bg-input: #1a1a30;
+  --text-primary: #e0dcd0;
+  --text-secondary: #8a8578;
+  --text-muted: #5a5550;
+  --accent: #c9a96e;
+  --accent-dim: #7a6540;
+  --danger: #a05252;
+  --border: #252538;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* ========================================
+   主布局
+   ======================================== */
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* ========================================
+   顶部栏
+   ======================================== */
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  padding-top: calc(12px + var(--safe-top));
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.app-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.btn-icon:active {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+/* ========================================
+   故事区域
+   ======================================== */
+
+.story-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 16px;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.story-content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* 欢迎消息 */
+.welcome-message {
+  text-align: center;
+  padding: 60px 20px 0;
+  color: var(--text-muted);
+  line-height: 1.8;
+}
+
+.welcome-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.welcome-hint {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--accent-dim);
+}
+
+/* 叙事段落 */
+.narrative-block {
+  margin-bottom: 24px;
+  animation: fadeIn 0.4s ease;
+}
+
+.narrative-text {
+  font-family: "Songti SC", "Noto Serif SC", "STSong", Georgia, serif;
+  font-size: 17px;
+  line-height: 1.85;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.narrative-text p {
+  margin-bottom: 12px;
+}
+
+/* 用户行动 */
+.user-action {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-left: 2px solid var(--accent-dim);
+  background: rgba(201, 169, 110, 0.06);
+  border-radius: 0 6px 6px 0;
+}
+
+.user-action .action-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-dim);
+  margin-bottom: 4px;
+}
+
+.user-action .action-text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 用户图片 */
+.user-image {
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 280px;
+}
+
+.user-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.user-image .image-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-dim);
+  padding: 6px 0 8px;
+}
+
+/* 系统消息 */
+.system-note {
+  text-align: center;
+  margin: 16px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* 加载动画 */
+.loading-dots {
+  display: flex;
+  gap: 6px;
+  padding: 12px 0;
+}
+
+.loading-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-dim);
+  animation: dotPulse 1.4s infinite ease;
+}
+
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ========================================
+   底部输入栏
+   ======================================== */
+
+.input-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  padding-bottom: calc(10px + var(--safe-bottom));
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.input-wrapper {
+  flex: 1;
+  background: var(--bg-input);
+  border-radius: 20px;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--accent-dim);
+}
+
+#user-input {
+  width: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-family: inherit;
+  resize: none;
+  max-height: 100px;
+  line-height: 1.4;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+#user-input::placeholder {
+  color: var(--text-muted);
+}
+
+.btn-send {
+  background: var(--accent);
+  border: none;
+  color: var(--bg-deep);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.btn-send:active {
+  background: #b8944d;
+  transform: scale(0.93);
+}
+
+.btn-send:disabled {
+  background: var(--border);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.hidden-input {
+  display: none;
+}
+
+/* ========================================
+   设置面板
+   ======================================== */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.settings-panel {
+  background: var(--bg-surface);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  border-radius: 16px 16px 0 0;
+  padding: 0 20px calc(20px + var(--safe-bottom));
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0 12px;
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  z-index: 1;
+}
+
+.settings-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.settings-label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 16px 0 6px;
+  font-weight: 500;
+}
+
+.settings-panel textarea {
+  width: 100%;
+  min-height: 80px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  line-height: 1.6;
+  transition: border-color 0.2s;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.settings-panel textarea:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+}
+
+.settings-panel input[type="text"],
+.settings-panel input[type="password"] {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.settings-panel input:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+}
+
+.api-key-row {
+  display: flex;
+  gap: 8px;
+}
+
+.api-key-row input {
+  flex: 1;
+}
+
+.btn-mini {
+  background: var(--border);
+  border: none;
+  color: var(--text-secondary);
+  width: 40px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.2s;
+}
+
+.btn-mini:active {
+  background: var(--accent-dim);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.btn-primary {
+  flex: 1;
+  background: var(--accent);
+  border: none;
+  color: var(--bg-deep);
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:active {
+  background: #b8944d;
+}
+
+.btn-secondary {
+  flex: 1;
+  background: var(--border);
+  border: none;
+  color: var(--text-secondary);
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-secondary:active {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* ========================================
+   空状态状态
+   ======================================== */
+
+.story-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+/* ========================================
+   动画
+   ======================================== */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50%      { opacity: 1; transform: scale(1); }
+}
+
+/* ========================================
+   滚动条
+   ======================================== */
+
+.story-area::-webkit-scrollbar {
+  width: 4px;
+}
+
+.story-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.story-area::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* ========================================
+   NPC 角色卡入口
+   ======================================== */
+
+.npc-card-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.npc-count {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.btn-outline {
+  background: none;
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-outline:active {
+  background: rgba(201, 169, 110, 0.12);
+}
+
+/* ========================================
+   注意力滑块
+   ======================================== */
+
+.attention-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.attention-slider-row input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  outline: none;
+}
+
+.attention-slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+}
+
+.attention-value {
+  display: inline-block;
+  background: var(--accent-dim);
+  color: var(--bg-deep);
+  font-size: 13px;
+  font-weight: 600;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+  border-radius: 50%;
+  margin-left: 6px;
+}
+
+.attention-hint-left,
+.attention-hint-right {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.settings-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+/* ========================================
+   角色卡管理面板
+   ======================================== */
+
+.characters-panel {
+  background: var(--bg-surface);
+  width: 100%;
+  max-width: 600px;
+  height: 90vh;
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+}
+
+.characters-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.characters-header h2 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.header-spacer {
+  width: 60px;
+}
+
+.btn-back {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.characters-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 20px;
+}
+
+.characters-search {
+  padding: 10px 20px;
+  flex-shrink: 0;
+}
+
+.characters-search input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.characters-search input:focus {
+  border-color: var(--accent-dim);
+}
+
+.characters-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.characters-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 40px 20px;
+  font-size: 14px;
+}
+
+.character-card {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.character-card:active {
+  border-color: var(--accent-dim);
+  background: rgba(201, 169, 110, 0.05);
+}
+
+.character-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.character-card-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.character-card-role {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.character-card-memory-info {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.character-card-arrow {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.characters-footer {
+  padding: 16px 20px;
+  padding-bottom: calc(16px + var(--safe-bottom));
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.characters-footer .btn-primary {
+  width: 100%;
+}
+
+/* ========================================
+   角色卡编辑面板
+   ======================================== */
+
+.character-edit-panel {
+  background: var(--bg-surface);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  border-radius: 16px 16px 0 0;
+  padding: 0 20px calc(20px + var(--safe-bottom));
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+.edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0 12px;
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  z-index: 1;
+}
+
+.edit-header h2 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.btn-delete-char {
+  color: var(--danger);
+  font-size: 18px;
+}
+
+.character-edit-panel .btn-primary {
+  width: 100%;
+  margin-top: 20px;
+}
+
+/* ========================================
+   世界切换
+   ======================================== */
+
+.btn-world-switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.btn-world-switch:active {
+  background: var(--border);
+}
+
+.switch-arrow {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.worlds-panel {
+  background: var(--bg-surface);
+  width: 100%;
+  max-width: 600px;
+  height: 80vh;
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+}
+
+.worlds-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.worlds-header h2 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.worlds-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 20px;
+}
+
+.world-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.world-card.active {
+  border-color: var(--accent);
+  background: rgba(201, 169, 110, 0.06);
+}
+
+.world-card:active {
+  border-color: var(--accent-dim);
+}
+
+.world-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.world-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.world-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.world-card-badge {
+  font-size: 11px;
+  background: var(--accent-dim);
+  color: var(--bg-deep);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.world-card-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  opacity: 0.5;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.world-card-delete:active {
+  opacity: 1;
+  color: var(--danger);
+}
+
+.worlds-footer {
+  padding: 16px 20px;
+  padding-bottom: calc(16px + var(--safe-bottom));
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.worlds-footer .btn-primary {
+  width: 100%;
+}
+
+/* ========================================
+   记忆字段
+   ======================================== */
+
+.memory-badge {
+  font-size: 11px;
+  background: var(--accent-dim);
+  color: var(--bg-deep);
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-weight: 500;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.memory-field {
+  background: rgba(201, 169, 110, 0.04) !important;
+  border-color: var(--accent-dim) !important;
+  font-size: 13px !important;
+  color: var(--text-secondary) !important;
+}
+
+.memory-stats {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* ========================================
+   NPC 独立响应
+   ======================================== */
+
+.npc-response {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: rgba(201, 169, 110, 0.04);
+  border-left: 2px solid var(--accent-dim);
+  border-radius: 0 8px 8px 0;
+  animation: fadeIn 0.35s ease;
+}
+
+.npc-response p {
+  font-family: "Songti SC", "Noto Serif SC", "STSong", Georgia, serif;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.npc-response p:last-child {
+  margin-bottom: 0;
+}
+
+/* ========================================
+   聊天气泡
+   ======================================== */
+
+.chat-message {
+  display: flex;
+  margin-bottom: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.chat-message.narrator {
+  justify-content: center;
+}
+
+.chat-message.protagonist {
+  flex-direction: row-reverse;
+}
+
+/* 头像 */
+.chat-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent-dim);
+  overflow: hidden;
+}
+
+.chat-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chat-message.protagonist .chat-avatar {
+  background: var(--accent);
+}
+
+.chat-message.narrator .chat-avatar {
+  display: none;
+}
+
+/* 气泡主体 */
+.chat-body {
+  max-width: 75%;
+  margin: 0 10px;
+}
+
+.chat-message.protagonist .chat-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.chat-sender {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 3px;
+}
+
+.chat-message.protagonist .chat-sender {
+  color: var(--accent);
+}
+
+.chat-sender-role {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.chat-bubble {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 15px;
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.chat-message.npc .chat-bubble {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-top-left-radius: 4px;
+  font-family: "Songti SC", "Noto Serif SC", Georgia, serif;
+}
+
+.chat-message.protagonist .chat-bubble {
+  background: var(--accent);
+  color: var(--bg-deep);
+  border-top-right-radius: 4px;
+}
+
+.chat-message.narrator .chat-bubble {
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  font-style: italic;
+  padding: 6px 20px;
+  max-width: 85%;
+}
+
+/* 图片消息 */
+.chat-image {
+  max-width: 200px;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.chat-image img {
+  width: 100%;
+  display: block;
+}
+
+/* ========================================
+   头像上传
+   ======================================== */
+
+.avatar-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar-preview {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-input);
+  border: 2px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--text-muted);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar-preview.has-image {
+  border: none;
+}
+
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-protagonist {
+  border-color: var(--accent-dim);
+}
+
+.btn-sm {
+  font-size: 12px;
+  padding: 5px 12px;
+}
+
+/* ========================================
+   响应式：桌面端微调
+   ======================================== */
+
+@media (min-width: 700px) {
+  .story-area {
+    padding: 32px 24px;
+  }
+  .input-bar {
+    padding: 14px 20px;
+  }
+  .narrative-text {
+    font-size: 18px;
+  }
+}
