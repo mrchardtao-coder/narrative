@@ -31,7 +31,7 @@ const API = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseekKey}` },
       body: JSON.stringify({
-        model: CONFIG.DEEPSEEK_MODEL,
+        model: apiKeys.deepseekModel || 'deepseek-chat',
         messages,
         max_tokens: 1200,
         temperature: 0.85,
@@ -59,7 +59,7 @@ const API = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseekKey}` },
         body: JSON.stringify({
-          model: CONFIG.DEEPSEEK_MODEL,
+          model: apiKeys.deepseekModel || 'deepseek-chat',
           messages,
           max_tokens: 400,
           temperature: 0.9,
@@ -90,7 +90,7 @@ const API = {
     const response = await fetch(CONFIG.DEEPSEEK_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseekKey}` },
-      body: JSON.stringify({ model: CONFIG.DEEPSEEK_MODEL, messages, max_tokens: 4000, temperature: 0.3 }),
+      body: JSON.stringify({ model: apiKeys.deepseekModel || 'deepseek-chat', messages, max_tokens: 4000, temperature: 0.3 }),
     });
 
     if (!response.ok) return npc.memory;
@@ -113,7 +113,7 @@ const API = {
       const response = await fetch(CONFIG.DEEPSEEK_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseekKey}` },
-        body: JSON.stringify({ model: CONFIG.DEEPSEEK_MODEL, messages, max_tokens: 2000, temperature: 0.3 }),
+        body: JSON.stringify({ model: apiKeys.deepseekModel || 'deepseek-chat', messages, max_tokens: 2000, temperature: 0.3 }),
       });
 
       if (!response.ok) return { memoryUpdates: [], newCharacters: [] };

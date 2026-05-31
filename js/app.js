@@ -31,7 +31,8 @@ const App = {
       btnProtagonistAvatar: q('#btn-protagonist-avatar'),
       npcCount: q('#npc-count'), btnOpenCharacters: q('#btn-open-characters'),
       attentionSlider: q('#attention-slider'), attentionLabel: q('#attention-label'),
-      deepseekKey: q('#deepseek-key'), mimoKey: q('#mimo-key'), mimoEndpoint: q('#mimo-endpoint'),
+      deepseekKey: q('#deepseek-key'), deepseekModel: q('#deepseek-model'),
+      mimoKey: q('#mimo-key'), mimoEndpoint: q('#mimo-endpoint'),
       saveSettings: q('#settings-save'), resetStory: q('#settings-reset'),
       closeSettings: q('#settings-close'), openSettings: q('#open-settings'),
       toggleDsKey: q('#toggle-deepseek-key'), toggleMimoKey: q('#toggle-mimo-key'),
@@ -181,6 +182,7 @@ const App = {
     this.els.attentionSlider.value = world ? world.attention : CONFIG.DEFAULT_ATTENTION;
     this.els.attentionLabel.textContent = this.els.attentionSlider.value;
     this.els.deepseekKey.value = keys.deepseekKey || '';
+    this.els.deepseekModel.value = keys.deepseekModel || 'deepseek-chat';
     this.els.mimoKey.value = keys.mimoKey || '';
     this.els.mimoEndpoint.value = keys.mimoEndpoint || '';
     this.updateNpcCount(); this.els.overlay.classList.remove('hidden');
@@ -207,7 +209,7 @@ const App = {
     const name = this.els.worldName.value.trim();
     const ws = this.els.worldSetting.value.trim(); if (!ws) { alert('请填写世界观'); return; }
     if (!name) { alert('请填写世界名称'); return; }
-    Store.saveApiKeys({ deepseekKey: this.els.deepseekKey.value.trim(), mimoKey: this.els.mimoKey.value.trim(), mimoEndpoint: this.els.mimoEndpoint.value.trim() || CONFIG.MIMO_DEFAULT_ENDPOINT });
+    Store.saveApiKeys({ deepseekKey: this.els.deepseekKey.value.trim(), deepseekModel: this.els.deepseekModel.value.trim() || 'deepseek-chat', mimoKey: this.els.mimoKey.value.trim(), mimoEndpoint: this.els.mimoEndpoint.value.trim() || CONFIG.MIMO_DEFAULT_ENDPOINT });
     Store.updateCurrentWorld({
       name, worldSetting: ws, characterSetting: this.els.characterSetting.value.trim(),
       prologue: this.els.prologueSetting.value.trim(),
@@ -281,7 +283,7 @@ const App = {
     return `
       ${avatarHTML}
       <div class="chat-body">
-        <div class="chat-sender">${this.esc(name)}${role ? `<span class="chat-sender-role">· ${this.esc(role)}</span>` : ''}</div>
+        <div class="chat-sender">${this.esc(name)}</div>
         <div class="chat-bubble">${paras.map(p => this.esc(p)).join('<br>')}</div>
       </div>`;
   },

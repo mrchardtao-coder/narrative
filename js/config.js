@@ -22,4 +22,5 @@ const CONFIG = {
   STORE_DEEPSEEK_KEY: 'narrative_ds_key',
   STORE_MIMO_KEY: 'narrative_mimo_key',
   STORE_MIMO_ENDPOINT: 'narrative_mimo_endpoint',
+  STORE_DEEPSEEK_MODEL: 'narrative_ds_model',
 };

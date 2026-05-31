@@ -44,6 +44,7 @@ const Store = (() => {
       deepseekKey: localStorage.getItem('narrative_ds_key') || _defaultKeys.deepseekKey,
       mimoKey: localStorage.getItem('narrative_mimo_key') || _defaultKeys.mimoKey,
       mimoEndpoint: localStorage.getItem('narrative_mimo_endpoint') || 'https://api.xiaomimimo.com/v1/chat/completions',
+      deepseekModel: localStorage.getItem('narrative_ds_model') || 'deepseek-chat',
     };
   }
 
@@ -52,6 +53,7 @@ const Store = (() => {
     localStorage.setItem('narrative_ds_key', _apiCache.deepseekKey);
     localStorage.setItem('narrative_mimo_key', _apiCache.mimoKey);
     localStorage.setItem('narrative_mimo_endpoint', _apiCache.mimoEndpoint);
+    localStorage.setItem('narrative_ds_model', _apiCache.deepseekModel);
   }
 
   /* ---- 世界存取 ---- */
