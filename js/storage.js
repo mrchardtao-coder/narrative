@@ -16,7 +16,11 @@ const Store = (() => {
   function _load() {
     if (_cache) return;
     try {
-      const raw = localStorage.getItem('narrative_worlds');
+      let raw = localStorage.getItem('narrative_worlds');
+      if (!raw) {
+        raw = localStorage.getItem('narrative_worlds_bak');
+        if (raw) localStorage.setItem('narrative_worlds', raw);
+      }
       _cache = {
         worlds: raw ? JSON.parse(raw) : [],
         currentId: localStorage.getItem('narrative_current_id') || null,
@@ -29,11 +33,12 @@ const Store = (() => {
   function _save() {
     if (!_cache) return;
     try {
-      localStorage.setItem('narrative_worlds', JSON.stringify(_cache.worlds));
+      const data = JSON.stringify(_cache.worlds);
+      localStorage.setItem('narrative_worlds', data);
+      localStorage.setItem('narrative_worlds_bak', data);
       if (_cache.currentId) localStorage.setItem('narrative_current_id', _cache.currentId);
       else localStorage.removeItem('narrative_current_id');
     } catch (e) {
-      // 写入失败时作废缓存，保证下次 _load 能读到 localStorage 的真实状态
       _cache = null;
     }
   }
