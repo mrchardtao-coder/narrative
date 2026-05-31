@@ -424,22 +424,7 @@ const App = {
         if (prologue) this.renderSystemNote('📜 前情提要');
         else this.renderSystemNote('✦ 故事开始 ✦');
         this.renderChatBubble('narrator', envNarrative);
-
-        if (characters.length > 0) {
-          const sceneNpcs = this.findNpcsInText(envNarrative, characters);
-          if (sceneNpcs.length > 0) {
-            const npcResponses = await Promise.all(
-              sceneNpcs.map(npc => API.narrateNpc(apiKeys, npc, envNarrative))
-            );
-            for (const r of npcResponses) {
-              if (r.content) {
-                const npc = sceneNpcs.find(n => n.name === r.name);
-                Store.appendHistory({ role: 'assistant', content: r.content, source: npc ? npc.id : '', sourceName: r.name });
-                this.renderChatBubble('npc', r.content, npc);
-              }
-            }
-          }
-        }
+        // 开场不触发 NPC 响应，等用户第一次主动行动后再触发
       }
     } catch (err) {
       console.error('初始提示失败:', err);
