@@ -234,28 +234,29 @@ const App = {
   renderHistory(history) {
     if (!history || history.length === 0) return;
     this.hideWelcome();
-    for (const entry of history) this.renderChatEntry(entry);
+    const total = history.length;
+    for (let i = 0; i < total; i++) this.renderChatEntry(history[i], i, total);
     this.scrollToBottom();
   },
 
   /** 根据 source 渲染不同的聊天气泡 */
-  renderChatEntry(entry) {
+  renderChatEntry(entry, index, total) {
+    const showBtn = index < total - 1; // 最后一条不显示回退按钮
     if (entry.role === 'user') {
-      this.renderChatBubble('protagonist', entry.content);
+      this.renderChatBubble('protagonist', entry.content, null, index, showBtn);
     } else if (entry.source === 'narrator') {
       this.renderChatBubble('narrator', entry.content);
     } else if (entry.source) {
       const world = Store.getCurrentWorld();
       const npc = world ? world.characters.find(c => c.id === entry.source) : null;
-      this.renderChatBubble('npc', entry.content, npc);
+      this.renderChatBubble('npc', entry.content, npc, index, showBtn);
     } else {
-      // 旧格式兼容
       this.renderChatBubble('narrator', entry.content);
     }
   },
 
   /** 聊天气泡 */
-  renderChatBubble(type, content, npc) {
+  renderChatBubble(type, content, npc, index, showBtn) {
     const div = document.createElement('div');
     div.className = `chat-message ${type}`;
 
@@ -263,28 +264,34 @@ const App = {
       const world = Store.getCurrentWorld();
       const pName = world ? world.protagonistName || '主角' : '主角';
       const pAvatar = world ? world.protagonistAvatar || '' : '';
-      div.innerHTML = this._buildBubbleHTML(pName, '', pAvatar, content);
+      div.innerHTML = this._buildBubbleHTML(pName, '', pAvatar, content, index, showBtn);
     } else if (type === 'npc' && npc) {
-      div.innerHTML = this._buildBubbleHTML(npc.name, npc.role, npc.avatar || '', content);
+      div.innerHTML = this._buildBubbleHTML(npc.name, npc.role, npc.avatar || '', content, index, showBtn);
     } else if (type === 'narrator') {
       const paras = content.split('\n').filter(p => p.trim());
       div.innerHTML = `<div class="chat-body"><div class="chat-bubble">${paras.map(p => this.esc(p)).join('<br>')}</div></div>`;
     }
 
     this.els.storyContent.appendChild(div);
+    // 绑定回退按钮事件
+    if (showBtn) {
+      const btn = div.querySelector('.chat-rollback');
+      if (btn) btn.addEventListener('click', (e) => { e.stopPropagation(); this.rollbackFrom(index); });
+    }
     this.scrollToBottom();
   },
 
-  _buildBubbleHTML(name, role, avatarUrl, content) {
+  _buildBubbleHTML(name, role, avatarUrl, content, index, showBtn) {
     const paras = content.split('\n').filter(p => p.trim());
     const avatarHTML = avatarUrl
       ? `<div class="chat-avatar"><img src="${avatarUrl}" alt=""></div>`
       : `<div class="chat-avatar">${name[0] || '?'}</div>`;
+    const btnHTML = showBtn ? `<button class="chat-rollback" data-index="${index}" title="从此处重置">↩</button>` : '';
     return `
       ${avatarHTML}
       <div class="chat-body">
         <div class="chat-sender">${this.esc(name)}</div>
-        <div class="chat-bubble">${paras.map(p => this.esc(p)).join('<br>')}</div>
+        <div class="chat-bubble">${paras.map(p => this.esc(p)).join('<br>')}${btnHTML}</div>
       </div>`;
   },
 
@@ -294,6 +301,14 @@ const App = {
     div.innerHTML = `<div class="chat-body"><div class="chat-bubble">${this.esc(text)}</div></div>`;
     this.els.storyContent.appendChild(div);
     this.scrollToBottom();
+  },
+
+  /** 从指定消息索引处截断历史 */
+  rollbackFrom(index) {
+    if (!confirm('从此处重置之后的所有对话？世界观和角色设定会保留。')) return;
+    Store.truncateHistory(index + 1);
+    this.els.storyContent.innerHTML = '';
+    this.renderHistory(Store.getHistory());
   },
 
   scrollToBottom() {

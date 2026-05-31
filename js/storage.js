@@ -194,6 +194,12 @@ const Store = (() => {
       w.history = [];
       _save();
     },
+    truncateHistory(keepCount) {
+      const w = this.getCurrentWorld();
+      if (!w) return;
+      w.history = w.history.slice(0, keepCount);
+      _save();
+    },
 
     /* ---- 迁移 ---- */
     migrateIfNeeded() {
