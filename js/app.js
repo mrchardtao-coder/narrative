@@ -182,7 +182,7 @@ const App = {
     this.els.attentionSlider.value = world ? world.attention : CONFIG.DEFAULT_ATTENTION;
     this.els.attentionLabel.textContent = this.els.attentionSlider.value;
     this.els.deepseekKey.value = keys.deepseekKey || '';
-    this.els.deepseekModel.value = keys.deepseekModel || 'deepseek-chat';
+    this.els.deepseekModel.value = keys.deepseekModel || 'deepseek-v4-pro';
     this.els.mimoKey.value = keys.mimoKey || '';
     this.els.mimoEndpoint.value = keys.mimoEndpoint || '';
     this.updateNpcCount(); this.els.overlay.classList.remove('hidden');
@@ -209,7 +209,7 @@ const App = {
     const name = this.els.worldName.value.trim();
     const ws = this.els.worldSetting.value.trim(); if (!ws) { alert('请填写世界观'); return; }
     if (!name) { alert('请填写世界名称'); return; }
-    Store.saveApiKeys({ deepseekKey: this.els.deepseekKey.value.trim(), deepseekModel: this.els.deepseekModel.value.trim() || 'deepseek-chat', mimoKey: this.els.mimoKey.value.trim(), mimoEndpoint: this.els.mimoEndpoint.value.trim() || CONFIG.MIMO_DEFAULT_ENDPOINT });
+    Store.saveApiKeys({ deepseekKey: this.els.deepseekKey.value.trim(), deepseekModel: this.els.deepseekModel.value.trim() || 'deepseek-v4-pro', mimoKey: this.els.mimoKey.value.trim(), mimoEndpoint: this.els.mimoEndpoint.value.trim() || CONFIG.MIMO_DEFAULT_ENDPOINT });
     Store.updateCurrentWorld({
       name, worldSetting: ws, characterSetting: this.els.characterSetting.value.trim(),
       prologue: this.els.prologueSetting.value.trim(),

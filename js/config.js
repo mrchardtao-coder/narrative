@@ -5,7 +5,7 @@
 const CONFIG = {
   // DeepSeek
   DEEPSEEK_API: 'https://api.deepseek.com/v1/chat/completions',
-  DEEPSEEK_MODEL: 'deepseek-chat',
+  DEEPSEEK_MODEL: 'deepseek-v4-pro',
 
   // MIMO 默认端点
   MIMO_DEFAULT_ENDPOINT: 'https://api.xiaomimimo.com/v1/chat/completions',
