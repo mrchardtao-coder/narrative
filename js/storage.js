@@ -32,7 +32,10 @@ const Store = (() => {
       localStorage.setItem('narrative_worlds', JSON.stringify(_cache.worlds));
       if (_cache.currentId) localStorage.setItem('narrative_current_id', _cache.currentId);
       else localStorage.removeItem('narrative_current_id');
-    } catch (e) { console.warn('Store 写入失败', e); }
+    } catch (e) {
+      // 写入失败时作废缓存，保证下次 _load 能读到 localStorage 的真实状态
+      _cache = null;
+    }
   }
 
   function _loadApi() {
@@ -136,13 +139,13 @@ const Store = (() => {
       const w = this.getCurrentWorld();
       return w ? w.characters : [];
     },
-    addCharacter(name, role, personality, relation, avatar) {
+    addCharacter(name, role, personality, relation, avatar, memory) {
       const w = this.getCurrentWorld();
       if (!w) return null;
       const c = {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
         name, role, personality, relation: relation || '',
-        avatar: avatar || '', memory: '',
+        avatar: avatar || '', memory: memory || '',
       };
       w.characters.push(c);
       _save();

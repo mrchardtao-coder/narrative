@@ -194,6 +194,7 @@ const App = {
         name: this.els.worldName.value.trim(),
         worldSetting: this.els.worldSetting.value.trim(),
         characterSetting: this.els.characterSetting.value.trim(),
+        prologue: this.els.prologueSetting.value.trim(),
         attention: parseInt(this.els.attentionSlider.value),
         protagonistName: this.els.protagonistName.value.trim(),
         protagonistAvatar: this.protagonistDataUrl,
@@ -214,7 +215,7 @@ const App = {
       protagonistName: this.els.protagonistName.value.trim(),
       protagonistAvatar: this.protagonistDataUrl,
     });
-    this.updateWorldName(); this.hideSettings(); this.hideWelcome();
+    this.updateWorldName(); this.els.overlay.classList.add('hidden'); this.hideWelcome();
     if (Store.getHistory().length === 0) this.sendInitialPrompt();
   },
 
@@ -512,10 +513,7 @@ const App = {
     if (id) {
       Store.updateCharacter(id, name, role, personality, relation, memory, this.editDataUrl);
     } else {
-      const nc = Store.addCharacter(name, role, personality, relation, this.editDataUrl);
-      if (memory && nc) {
-        Store.updateCharacter(nc.id, name, role, personality, relation, memory, this.editDataUrl);
-      }
+      Store.addCharacter(name, role, personality, relation, this.editDataUrl, memory);
     }
     this.closeCharacterEdit(); this.renderCharactersList(); this.updateNpcCount();
   },
