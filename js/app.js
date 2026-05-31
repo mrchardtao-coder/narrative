@@ -512,9 +512,8 @@ const App = {
     if (id) {
       Store.updateCharacter(id, name, role, personality, relation, memory, this.editDataUrl);
     } else {
-      Store.addCharacter(name, role, personality, relation, this.editDataUrl);
-      if (memory) {
-        const chars = Store.getCharacters(); const nc = chars[chars.length - 1];
+      const nc = Store.addCharacter(name, role, personality, relation, this.editDataUrl);
+      if (memory && nc) {
         Store.updateCharacter(nc.id, name, role, personality, relation, memory, this.editDataUrl);
       }
     }

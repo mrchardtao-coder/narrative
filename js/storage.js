@@ -113,13 +113,14 @@ const Store = {
     return world ? world.characters : [];
   },
 
-  _saveCharacters(characters) {
-    const world = this.getCurrentWorld();
-    if (!world) return;
-    world.characters = characters;
+  /** 原子操作：读取当前世界、修改、保存，避免多对象引用不一致 */
+  _withWorld(fn) {
     const worlds = this.getWorlds();
-    const idx = worlds.findIndex(w => w.id === world.id);
-    if (idx !== -1) { worlds[idx] = world; this._saveWorlds(worlds); }
+    const id = this.getCurrentWorldId();
+    const idx = worlds.findIndex(w => w.id === id);
+    if (idx === -1) return;
+    fn(worlds[idx]);
+    this._saveWorlds(worlds);
   },
 
   findCharacterById(id) {
@@ -127,36 +128,36 @@ const Store = {
   },
 
   addCharacter(name, role, personality, relation, avatar) {
-    const chars = this.getCharacters();
-    chars.push({
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-      name, role, personality, relation: relation || '',
-      avatar: avatar || '',
-      memory: '',
+    let result = null;
+    this._withWorld(world => {
+      const c = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        name, role, personality, relation: relation || '',
+        avatar: avatar || '', memory: '',
+      };
+      world.characters.push(c);
+      result = c;
     });
-    this._saveCharacters(chars);
-    return chars;
+    return result;
   },
 
   updateCharacter(id, name, role, personality, relation, memory, avatar) {
-    const chars = this.getCharacters();
-    const idx = chars.findIndex(c => c.id === id);
-    if (idx === -1) return chars;
-    chars[idx] = {
-      ...chars[idx],
-      name, role, personality,
-      relation: relation || '',
-      memory: memory !== undefined ? memory : chars[idx].memory,
-      avatar: avatar !== undefined ? avatar : chars[idx].avatar,
-    };
-    this._saveCharacters(chars);
-    return chars;
+    this._withWorld(world => {
+      const idx = world.characters.findIndex(c => c.id === id);
+      if (idx === -1) return;
+      world.characters[idx] = {
+        ...world.characters[idx],
+        name, role, personality, relation: relation || '',
+        memory: memory !== undefined ? memory : world.characters[idx].memory,
+        avatar: avatar !== undefined ? avatar : world.characters[idx].avatar,
+      };
+    });
   },
 
   deleteCharacter(id) {
-    const chars = this.getCharacters().filter(c => c.id !== id);
-    this._saveCharacters(chars);
-    return chars;
+    this._withWorld(world => {
+      world.characters = world.characters.filter(c => c.id !== id);
+    });
   },
 
   /* ============================================
