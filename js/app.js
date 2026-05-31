@@ -122,9 +122,19 @@ const App = {
         '婴儿时期被抛弃，幼时被师尊收养为徒。跟随师尊修行多年，有很多不为人知的手段和经历。性格坚韧内敛，处变不惊。',
         CONFIG.DEFAULT_ATTENTION
       );
+      Store.updateCurrentWorld({ protagonistName: '陶沫' });
+      return;
+    }
+    // 如果当前世界是空的旧默认世界，也升级为群像
+    const w = Store.getCurrentWorld();
+    if (w && !w.worldSetting && !w.characters.length && !w.history.length && (!w.protagonistName || w.name === '我的世界')) {
       Store.updateCurrentWorld({
+        name: '群像',
+        worldSetting: '一个兼容任何故事类型的世界。时代、地域、规则由使用者自由定义。',
+        characterSetting: '婴儿时期被抛弃，幼时被师尊收养为徒。性格坚韧内敛，处变不惊。',
         protagonistName: '陶沫',
       });
+      this.updateWorldName();
     }
     if (!Store.getCurrentWorldId()) {
       worlds = Store.getWorlds();

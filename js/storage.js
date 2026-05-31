@@ -51,6 +51,11 @@ const Store = (() => {
       mimoEndpoint: localStorage.getItem('narrative_mimo_endpoint') || 'https://api.xiaomimimo.com/v1/chat/completions',
       deepseekModel: localStorage.getItem('narrative_ds_model') || 'deepseek-v4-pro',
     };
+    // 如果之前存的是旧默认值 deepseek-chat，强制替换为 v4-pro
+    if (_apiCache.deepseekModel === 'deepseek-chat') {
+      _apiCache.deepseekModel = 'deepseek-v4-pro';
+      localStorage.setItem('narrative_ds_model', 'deepseek-v4-pro');
+    }
   }
 
   function _saveApi() {
