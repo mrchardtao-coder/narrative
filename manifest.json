@@ -2,21 +2,10 @@
   "name": "叙事 — 交互式小说",
   "short_name": "叙事",
   "description": "一个你可以亲身参与的交互式小说。设定世界观，扮演主角，AI 为你展开一个活生生的世界。",
-  "start_url": ".",
+  "start_url": "/narrative/",
+  "scope": "/narrative/",
   "display": "standalone",
   "background_color": "#0d0d1a",
   "theme_color": "#0d0d1a",
-  "orientation": "portrait",
-  "icons": [
-    {
-      "src": "assets/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "assets/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
+  "orientation": "portrait"
 }
