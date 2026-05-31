@@ -117,26 +117,18 @@ const App = {
   ensureWorld() {
     let worlds = Store.getWorlds();
     if (worlds.length === 0) {
-      Store.createWorld('群像',
-        '一个兼容任何故事类型的世界。时代、地域、规则由使用者自由定义。世界会对主角的行动做出真实反应。',
-        '婴儿时期被抛弃，幼时被师尊收养为徒。跟随师尊修行多年，有很多不为人知的手段和经历。性格坚韧内敛，处变不惊。',
-        CONFIG.DEFAULT_ATTENTION
-      );
-      Store.updateCurrentWorld({ protagonistName: '陶沫' });
-      Store.addCharacter('师尊', '落霞山掌门', '气质清冷，外表淡漠但内心关切。修行数百年的高人，话不多但每句都有分量。对弟子陶沫既严格又护短。', '收养陶沫的人，既是师父也是唯一的亲人', '');
+      const d = DEFAULT_WORLD;
+      Store.createWorld(d.name, d.worldSetting, d.characterSetting, CONFIG.DEFAULT_ATTENTION);
+      Store.updateCurrentWorld({ protagonistName: d.protagonistName, prologue: d.prologue });
+      for (const c of d.characters) Store.addCharacter(c.name, c.role, c.personality, c.relation, '');
       return;
     }
     // 如果当前世界是空的旧默认世界，也升级为群像
     const w = Store.getCurrentWorld();
     if (w && !w.worldSetting && !w.characters.length && !w.history.length && (!w.protagonistName || w.name === '我的世界')) {
-      Store.updateCurrentWorld({
-        name: '群像',
-        worldSetting: '一个兼容任何故事类型的世界。时代、地域、规则由使用者自由定义。',
-        characterSetting: '婴儿时期被抛弃，幼时被师尊收养为徒。性格坚韧内敛，处变不惊。',
-        protagonistName: '陶沫',
-      });
-      // 默认角色卡：师尊
-      Store.addCharacter('师尊', '落霞山掌门', '气质清冷，外表淡漠但内心关切。修行数百年的高人，话不多但每句都有分量。对弟子陶沫既严格又护短。', '收养陶沫的人，既是师父也是唯一的亲人', '');
+      const d = DEFAULT_WORLD;
+      Store.updateCurrentWorld({ name: d.name, worldSetting: d.worldSetting, characterSetting: d.characterSetting, protagonistName: d.protagonistName, prologue: d.prologue });
+      for (const c of d.characters) Store.addCharacter(c.name, c.role, c.personality, c.relation, '');
       this.updateWorldName();
     }
     if (!Store.getCurrentWorldId()) {
