@@ -186,7 +186,21 @@ const App = {
     this.updateNpcCount(); this.els.overlay.classList.remove('hidden');
   },
 
-  hideSettings() { this.els.overlay.classList.add('hidden'); },
+  hideSettings() {
+    // 自动保存当前表单内容到世界设定
+    const world = Store.getCurrentWorld();
+    if (world) {
+      Store.updateCurrentWorld({
+        name: this.els.worldName.value.trim(),
+        worldSetting: this.els.worldSetting.value.trim(),
+        characterSetting: this.els.characterSetting.value.trim(),
+        attention: parseInt(this.els.attentionSlider.value),
+        protagonistName: this.els.protagonistName.value.trim(),
+        protagonistAvatar: this.protagonistDataUrl,
+      });
+    }
+    this.els.overlay.classList.add('hidden');
+  },
 
   saveAndStart() {
     const name = this.els.worldName.value.trim();

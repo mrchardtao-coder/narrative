@@ -643,6 +643,7 @@ html, body {
   flex: 1;
   overflow-y: auto;
   padding: 12px 20px;
+  min-height: 200px;
 }
 
 .characters-search {

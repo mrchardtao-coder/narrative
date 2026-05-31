@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>图标生成器</title>
+<style>
+  body { font-family: sans-serif; text-align: center; padding: 40px; background: #1a1a2e; color: #e0dcd0; }
+  canvas { display: none; }
+  button { margin: 10px; padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; background: #c9a96e; color: #0d0d1a; font-weight: bold; }
+  .preview { margin: 20px auto; border: 2px dashed #5a5550; display: inline-block; }
+</style></head><body>
+<h2>叙事 App 图标生成器</h2>
+<p>点击按钮下载图标，然后上传到 freeappmaker</p>
+<img class="preview" id="preview-512" width="128" height="128" alt="">
+<button onclick="downloadIcon(512)">下载 512x512 图标</button>
+<br>
+<img class="preview" id="preview-1080" width="270" height="480" alt="">
+<button onclick="downloadIcon(1080)">下载 1080x1920 启动画面</button>
+
+<canvas id="c512" width="512" height="512"></canvas>
+<canvas id="c1080" width="1080" height="1920"></canvas>
+
+<script>
+function drawPenIcon(canvas) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  // 背景
+  ctx.fillStyle = '#0d0d1a';
+  ctx.beginPath(); ctx.roundRect(0, 0, w, h, w * 0.12); ctx.fill();
+  // 笔
+  const cx = w * 0.5, cy = h * 0.45, s = w * 0.32;
+  ctx.strokeStyle = '#c9a96e';
+  ctx.lineWidth = s * 0.06;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // 笔杆
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.12, cy + s * 0.8);
+  ctx.lineTo(cx - s * 0.12, cy - s * 0.5);
+  ctx.lineTo(cx + s * 0.12, cy - s * 0.5);
+  ctx.lineTo(cx + s * 0.12, cy + s * 0.8);
+  ctx.closePath(); ctx.stroke();
+  // 笔尖
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.12, cy + s * 0.8);
+  ctx.lineTo(cx, cy + s * 1.15);
+  ctx.lineTo(cx + s * 0.12, cy + s * 0.8);
+  ctx.closePath(); ctx.fillStyle = '#c9a96e'; ctx.fill();
+  // 笔帽
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.16, cy - s * 0.5);
+  ctx.lineTo(cx - s * 0.16, cy - s * 0.65);
+  ctx.lineTo(cx + s * 0.16, cy - s * 0.65);
+  ctx.lineTo(cx + s * 0.16, cy - s * 0.5);
+  ctx.closePath(); ctx.fill();
+  // 笔夹
+  ctx.beginPath();
+  ctx.moveTo(cx + s * 0.08, cy - s * 0.65);
+  ctx.lineTo(cx + s * 0.08, cy - s * 0.85);
+  ctx.lineWidth = s * 0.04;
+  ctx.stroke();
+}
+
+function drawSplash(canvas) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.fillStyle = '#0d0d1a'; ctx.fillRect(0, 0, w, h);
+  const s = w * 0.18, cx = w * 0.5, cy = h * 0.42;
+  ctx.strokeStyle = '#c9a96e';
+  ctx.lineWidth = s * 0.06;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.12, cy + s * 0.8);
+  ctx.lineTo(cx - s * 0.12, cy - s * 0.5);
+  ctx.lineTo(cx + s * 0.12, cy - s * 0.5);
+  ctx.lineTo(cx + s * 0.12, cy + s * 0.8);
+  ctx.closePath(); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.12, cy + s * 0.8);
+  ctx.lineTo(cx, cy + s * 1.15);
+  ctx.lineTo(cx + s * 0.12, cy + s * 0.8);
+  ctx.closePath(); ctx.fillStyle = '#c9a96e'; ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.16, cy - s * 0.5);
+  ctx.lineTo(cx - s * 0.16, cy - s * 0.65);
+  ctx.lineTo(cx + s * 0.16, cy - s * 0.65);
+  ctx.lineTo(cx + s * 0.16, cy - s * 0.5);
+  ctx.closePath(); ctx.fill();
+}
+
+drawPenIcon(document.getElementById('c512'));
+drawSplash(document.getElementById('c1080'));
+document.getElementById('preview-512').src = document.getElementById('c512').toDataURL();
+document.getElementById('preview-1080').src = document.getElementById('c1080').toDataURL();
+
+function downloadIcon(size) {
+  const c = document.getElementById(size === 512 ? 'c512' : 'c1080');
+  const a = document.createElement('a');
+  a.download = size === 512 ? 'icon-512.png' : 'splash-1080x1920.png';
+  a.href = c.toDataURL('image/png');
+  a.click();
+}
+</script>
+</body></html>
