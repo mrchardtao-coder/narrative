@@ -374,9 +374,9 @@ const App = {
       Store.appendHistory({ role: 'assistant', content: envNarrative, source: 'narrator' });
       this.renderChatBubble('narrator', envNarrative);
 
-      // NPC 独立调用
+      // NPC 独立调用（仅触发与用户直接互动的 NPC，最多 2 个）
       if (characters.length > 0) {
-        const sceneNpcs = this.findNpcsInText(envNarrative, characters);
+        const sceneNpcs = this.findActiveNpcs(userText, envNarrative, characters);
         if (sceneNpcs.length > 0) {
           const npcResponses = await Promise.all(
             sceneNpcs.map(npc => API.narrateNpc(apiKeys, npc, envNarrative))
@@ -400,8 +400,18 @@ const App = {
     }
   },
 
-  findNpcsInText(text, characters) {
-    return characters.filter(c => text.includes(c.name));
+  /** 智能筛选：用户主动提到的 NPC 优先，最多 2 个 */
+  findActiveNpcs(userText, envText, characters) {
+    const keywords = ['对你说', '看着你', '走向你', '对主角', '开口', '说道', '问道'];
+    const mentioned = characters.filter(c => userText.includes(c.name));
+    if (mentioned.length > 0) return mentioned.slice(0, 2);
+    const inScene = characters.filter(c => {
+      if (!envText.includes(c.name)) return false;
+      const idx = envText.indexOf(c.name);
+      const nearby = envText.substring(Math.max(0, idx - 20), idx + c.name.length + 30);
+      return keywords.some(k => nearby.includes(k));
+    });
+    return inScene.slice(0, 2);
   },
 
   async sendInitialPrompt() {
