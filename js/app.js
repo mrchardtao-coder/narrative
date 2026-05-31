@@ -116,7 +116,16 @@ const App = {
   /* ---- 世界管理 ---- */
   ensureWorld() {
     let worlds = Store.getWorlds();
-    if (worlds.length === 0) Store.createWorld('我的世界', '', '', CONFIG.DEFAULT_ATTENTION);
+    if (worlds.length === 0) {
+      Store.createWorld('群像',
+        '一个兼容任何故事类型的世界。时代、地域、规则由使用者自由定义。世界会对主角的行动做出真实反应。',
+        '婴儿时期被抛弃，幼时被师尊收养为徒。跟随师尊修行多年，有很多不为人知的手段和经历。性格坚韧内敛，处变不惊。',
+        CONFIG.DEFAULT_ATTENTION
+      );
+      Store.updateCurrentWorld({
+        protagonistName: '陶沫',
+      });
+    }
     if (!Store.getCurrentWorldId()) {
       worlds = Store.getWorlds();
       Store.setCurrentWorldId(worlds[0].id);
