@@ -1,226 +1,225 @@
 /* ========================================
-   本地存储管理 — 多世界版
+   本地存储管理 — 缓存版（单例对象）
+   所有世界操作通过 _cache 中唯一对象，避免多解析引用不一致
    ======================================== */
 
-const Store = {
-  _defaultKeys: {
+const Store = (() => {
+  let _cache = null;      // { worlds: [...], currentId: '...' }
+  let _apiCache = null;   // { deepseekKey, mimoKey, mimoEndpoint }
+
+  const _defaultKeys = {
     deepseekKey: '',
     mimoKey: '',
-  },
+  };
 
-  /* ---- 基础读写 ---- */
-  _get(key, fallback = null) {
+  /* ---- 缓存加载 ---- */
+  function _load() {
+    if (_cache) return;
     try {
-      const raw = localStorage.getItem(key);
-      if (raw === null) return fallback;
-      try { return JSON.parse(raw); } catch (_) { return raw; }
-    } catch (e) { return fallback; }
-  },
-  _set(key, value) {
-    try {
-      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
-    } catch (e) { console.warn('Store 写入失败:', key, e); }
-  },
-  _remove(key) { try { localStorage.removeItem(key); } catch (e) {} },
-
-  /* ============================================
-     API Keys（全局，跨世界共享）
-     ============================================ */
-  getApiKeys() {
-    return {
-      deepseekKey: this._get(CONFIG.STORE_DEEPSEEK_KEY) || this._defaultKeys.deepseekKey,
-      mimoKey: this._get(CONFIG.STORE_MIMO_KEY) || this._defaultKeys.mimoKey,
-      mimoEndpoint: this._get(CONFIG.STORE_MIMO_ENDPOINT) || CONFIG.MIMO_DEFAULT_ENDPOINT,
-    };
-  },
-  saveApiKeys(keys) {
-    this._set(CONFIG.STORE_DEEPSEEK_KEY, keys.deepseekKey);
-    this._set(CONFIG.STORE_MIMO_KEY, keys.mimoKey);
-    this._set(CONFIG.STORE_MIMO_ENDPOINT, keys.mimoEndpoint);
-  },
-
-  /* ============================================
-     世界管理
-     ============================================ */
-  getWorlds() {
-    return this._get(CONFIG.STORE_WORLDS, []);
-  },
-
-  _saveWorlds(worlds) {
-    this._set(CONFIG.STORE_WORLDS, worlds);
-  },
-
-  getCurrentWorldId() {
-    return this._get(CONFIG.STORE_CURRENT_WORLD) || null;
-  },
-
-  setCurrentWorldId(id) {
-    this._set(CONFIG.STORE_CURRENT_WORLD, id);
-  },
-
-  /** 获取当前世界对象 */
-  getCurrentWorld() {
-    const id = this.getCurrentWorldId();
-    if (!id) return null;
-    return this.getWorlds().find(w => w.id === id) || null;
-  },
-
-  /** 创建新世界，返回世界对象 */
-  createWorld(name, worldSetting, characterSetting, attention) {
-    const worlds = this.getWorlds();
-    const world = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-      name: name || '新世界',
-      worldSetting: worldSetting || '',
-      characterSetting: characterSetting || '',
-      attention: attention || CONFIG.DEFAULT_ATTENTION,
-      protagonistName: '',
-      protagonistAvatar: '',
-      characters: [],
-      history: [],
-    };
-    worlds.push(world);
-    this._saveWorlds(worlds);
-    this.setCurrentWorldId(world.id);
-    return world;
-  },
-
-  /** 更新当前世界设定 */
-  updateCurrentWorld(updates) {
-    const worlds = this.getWorlds();
-    const id = this.getCurrentWorldId();
-    const idx = worlds.findIndex(w => w.id === id);
-    if (idx === -1) return null;
-    Object.assign(worlds[idx], updates);
-    this._saveWorlds(worlds);
-    return worlds[idx];
-  },
-
-  /** 删除世界 */
-  deleteWorld(id) {
-    let worlds = this.getWorlds().filter(w => w.id !== id);
-    this._saveWorlds(worlds);
-    if (this.getCurrentWorldId() === id) {
-      this.setCurrentWorldId(worlds.length > 0 ? worlds[0].id : null);
+      const raw = localStorage.getItem('narrative_worlds');
+      _cache = {
+        worlds: raw ? JSON.parse(raw) : [],
+        currentId: localStorage.getItem('narrative_current_id') || null,
+      };
+    } catch (e) {
+      _cache = { worlds: [], currentId: null };
     }
-  },
+  }
 
-  /* ============================================
-     角色卡（属于当前世界）
-     ============================================ */
-  getCharacters() {
-    const world = this.getCurrentWorld();
-    return world ? world.characters : [];
-  },
+  function _save() {
+    if (!_cache) return;
+    try {
+      localStorage.setItem('narrative_worlds', JSON.stringify(_cache.worlds));
+      if (_cache.currentId) localStorage.setItem('narrative_current_id', _cache.currentId);
+      else localStorage.removeItem('narrative_current_id');
+    } catch (e) { console.warn('Store 写入失败', e); }
+  }
 
-  /** 原子操作：读取当前世界、修改、保存，避免多对象引用不一致 */
-  _withWorld(fn) {
-    const worlds = this.getWorlds();
-    const id = this.getCurrentWorldId();
-    const idx = worlds.findIndex(w => w.id === id);
-    if (idx === -1) return;
-    fn(worlds[idx]);
-    this._saveWorlds(worlds);
-  },
+  function _loadApi() {
+    if (_apiCache) return;
+    _apiCache = {
+      deepseekKey: localStorage.getItem('narrative_ds_key') || _defaultKeys.deepseekKey,
+      mimoKey: localStorage.getItem('narrative_mimo_key') || _defaultKeys.mimoKey,
+      mimoEndpoint: localStorage.getItem('narrative_mimo_endpoint') || 'https://api.xiaomimimo.com/v1/chat/completions',
+    };
+  }
 
-  findCharacterById(id) {
-    return this.getCharacters().find(c => c.id === id) || null;
-  },
+  function _saveApi() {
+    if (!_apiCache) return;
+    localStorage.setItem('narrative_ds_key', _apiCache.deepseekKey);
+    localStorage.setItem('narrative_mimo_key', _apiCache.mimoKey);
+    localStorage.setItem('narrative_mimo_endpoint', _apiCache.mimoEndpoint);
+  }
 
-  addCharacter(name, role, personality, relation, avatar) {
-    let result = null;
-    this._withWorld(world => {
+  /* ---- 世界存取 ---- */
+  function _world(idx) {
+    _load();
+    if (idx === undefined || idx < 0 || idx >= _cache.worlds.length) return null;
+    return _cache.worlds[idx];
+  }
+
+  function _currentIdx() {
+    _load();
+    if (!_cache.currentId) return -1;
+    return _cache.worlds.findIndex(w => w.id === _cache.currentId);
+  }
+
+  return {
+    /* ---- API Keys ---- */
+    getApiKeys() {
+      _loadApi();
+      return { ..._apiCache };
+    },
+    saveApiKeys(keys) {
+      _loadApi();
+      Object.assign(_apiCache, keys);
+      _saveApi();
+    },
+
+    /* ---- 世界 CRUD ---- */
+    getWorlds() {
+      _load();
+      return _cache.worlds;
+    },
+    getCurrentWorldId() {
+      _load();
+      return _cache.currentId;
+    },
+    setCurrentWorldId(id) {
+      _load();
+      _cache.currentId = id;
+      _save();
+    },
+    getCurrentWorld() {
+      const idx = _currentIdx();
+      return idx >= 0 ? _cache.worlds[idx] : null;
+    },
+
+    createWorld(name, worldSetting, characterSetting, attention) {
+      _load();
+      const world = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        name: name || '新世界',
+        worldSetting: worldSetting || '',
+        characterSetting: characterSetting || '',
+        attention: attention || 5,
+        prologue: '',
+        protagonistName: '',
+        protagonistAvatar: '',
+        characters: [],
+        history: [],
+      };
+      _cache.worlds.push(world);
+      _cache.currentId = world.id;
+      _save();
+      return world;
+    },
+
+    updateCurrentWorld(updates) {
+      const w = this.getCurrentWorld();
+      if (!w) return;
+      Object.assign(w, updates);
+      _save();
+    },
+
+    deleteWorld(id) {
+      _load();
+      _cache.worlds = _cache.worlds.filter(w => w.id !== id);
+      if (_cache.currentId === id) {
+        _cache.currentId = _cache.worlds.length > 0 ? _cache.worlds[0].id : null;
+      }
+      _save();
+    },
+
+    /* ---- 角色卡 ---- */
+    getCharacters() {
+      const w = this.getCurrentWorld();
+      return w ? w.characters : [];
+    },
+    addCharacter(name, role, personality, relation, avatar) {
+      const w = this.getCurrentWorld();
+      if (!w) return null;
       const c = {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
         name, role, personality, relation: relation || '',
         avatar: avatar || '', memory: '',
       };
-      world.characters.push(c);
-      result = c;
-    });
-    return result;
-  },
-
-  updateCharacter(id, name, role, personality, relation, memory, avatar) {
-    this._withWorld(world => {
-      const idx = world.characters.findIndex(c => c.id === id);
+      w.characters.push(c);
+      _save();
+      return c;
+    },
+    updateCharacter(id, name, role, personality, relation, memory, avatar) {
+      const w = this.getCurrentWorld();
+      if (!w) return;
+      const idx = w.characters.findIndex(c => c.id === id);
       if (idx === -1) return;
-      world.characters[idx] = {
-        ...world.characters[idx],
+      w.characters[idx] = {
+        ...w.characters[idx],
         name, role, personality, relation: relation || '',
-        memory: memory !== undefined ? memory : world.characters[idx].memory,
-        avatar: avatar !== undefined ? avatar : world.characters[idx].avatar,
+        memory: memory !== undefined ? memory : w.characters[idx].memory,
+        avatar: avatar !== undefined ? avatar : w.characters[idx].avatar,
       };
-    });
-  },
+      _save();
+    },
+    deleteCharacter(id) {
+      const w = this.getCurrentWorld();
+      if (!w) return;
+      w.characters = w.characters.filter(c => c.id !== id);
+      _save();
+    },
+    findCharacterById(id) {
+      return this.getCharacters().find(c => c.id === id) || null;
+    },
 
-  deleteCharacter(id) {
-    this._withWorld(world => {
-      world.characters = world.characters.filter(c => c.id !== id);
-    });
-  },
+    /* ---- 历史 ---- */
+    getHistory() {
+      const w = this.getCurrentWorld();
+      return w ? w.history : [];
+    },
+    appendHistory(entry) {
+      const w = this.getCurrentWorld();
+      if (!w) return;
+      w.history.push(entry);
+      if (w.history.length > 300) w.history.splice(0, w.history.length - 300);
+      _save();
+    },
+    clearHistory() {
+      const w = this.getCurrentWorld();
+      if (!w) return;
+      w.history = [];
+      _save();
+    },
 
-  /* ============================================
-     对话历史（属于当前世界）
-     ============================================ */
-  getHistory() {
-    const world = this.getCurrentWorld();
-    return world ? world.history : [];
-  },
-
-  appendHistory(entry) {
-    const world = this.getCurrentWorld();
-    if (!world) return;
-    world.history.push(entry);
-    if (world.history.length > CONFIG.MAX_HISTORY_ENTRIES) {
-      world.history.splice(0, world.history.length - CONFIG.MAX_HISTORY_ENTRIES);
-    }
-    const worlds = this.getWorlds();
-    const idx = worlds.findIndex(w => w.id === world.id);
-    if (idx !== -1) { worlds[idx] = world; this._saveWorlds(worlds); }
-  },
-
-  clearHistory() {
-    const world = this.getCurrentWorld();
-    if (!world) return;
-    world.history = [];
-    const worlds = this.getWorlds();
-    const idx = worlds.findIndex(w => w.id === world.id);
-    if (idx !== -1) { worlds[idx] = world; this._saveWorlds(worlds); }
-  },
-
-  /* ============================================
-     兼容旧数据迁移
-     ============================================ */
-  migrateIfNeeded() {
-    // 如果已有旧版单世界数据且尚未迁移，自动创建第一个世界
-    if (this.getWorlds().length > 0) return;
-    const oldWorld = this._get('narrative_world');
-    const oldChar = this._get('narrative_character');
-    const oldNpc = this._get('narrative_npc');
-    const oldAtt = this._get('narrative_attention', CONFIG.DEFAULT_ATTENTION);
-    const oldHist = this._get('narrative_history', []);
-    const oldChars = this._get('narrative_characters', []);
-
-    if (oldWorld || oldChar || oldHist.length > 0) {
-      // 迁移旧角色卡格式（无 memory 字段的补上）
-      const migratedChars = oldChars.map(c => ({ ...c, memory: c.memory || '' }));
-      const world = {
-        id: 'migrated_' + Date.now().toString(36),
-        name: '我的世界',
-        worldSetting: oldWorld || '',
-        characterSetting: oldChar || '',
-        attention: oldAtt,
-        characters: oldChars.length > 0 ? migratedChars : (
-          oldNpc ? [{ id: 'legacy', name: '旧角色', role: '旧设定', personality: oldNpc, relation: '', memory: '' }] : []
-        ),
-        history: oldHist,
-      };
-      this._saveWorlds([world]);
-      this.setCurrentWorldId(world.id);
-      // 清理旧键
-      ['narrative_world','narrative_character','narrative_npc','narrative_attention',
-       'narrative_characters','narrative_history','narrative_summary'].forEach(k => this._remove(k));
-    }
-  },
-};
+    /* ---- 迁移 ---- */
+    migrateIfNeeded() {
+      _load();
+      if (_cache.worlds.length > 0) return;
+      const oldWorld = localStorage.getItem('narrative_world');
+      const oldHist = localStorage.getItem('narrative_history');
+      if (oldWorld || oldHist) {
+        try {
+          const world = {
+            id: 'migrated_' + Date.now().toString(36),
+            name: '我的世界',
+            worldSetting: oldWorld || '',
+            characterSetting: localStorage.getItem('narrative_character') || '',
+            attention: parseInt(localStorage.getItem('narrative_attention')) || 5,
+            prologue: '',
+            protagonistName: '',
+            protagonistAvatar: '',
+            characters: (() => {
+              try { const c = JSON.parse(localStorage.getItem('narrative_characters')); return Array.isArray(c) ? c.map(x => ({...x, memory: x.memory||'', avatar: x.avatar||''})) : []; } catch(e) { return []; }
+            })(),
+            history: (() => {
+              try { const h = JSON.parse(oldHist); return Array.isArray(h) ? h : []; } catch(e) { return []; }
+            })(),
+          };
+          _cache.worlds = [world];
+          _cache.currentId = world.id;
+          _save();
+          ['narrative_world','narrative_character','narrative_npc','narrative_attention','narrative_characters','narrative_history','narrative_summary'].forEach(k => localStorage.removeItem(k));
+        } catch(e) {}
+      }
+    },
+  };
+})();
