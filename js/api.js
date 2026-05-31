@@ -31,9 +31,9 @@ const API = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseekKey}` },
       body: JSON.stringify({
-        model: apiKeys.deepseekModel || 'deepseek-v4-pro',
+        model: apiKeys.narratorModel || 'deepseek-v4-flash',
         messages,
-        max_tokens: 1200,
+        max_tokens: 500,
         temperature: 0.85,
         top_p: 0.95,
         frequency_penalty: 0.3,
