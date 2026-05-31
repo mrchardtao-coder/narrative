@@ -123,6 +123,7 @@ const App = {
         CONFIG.DEFAULT_ATTENTION
       );
       Store.updateCurrentWorld({ protagonistName: '陶沫' });
+      Store.addCharacter('师尊', '落霞山掌门', '气质清冷，外表淡漠但内心关切。修行数百年的高人，话不多但每句都有分量。对弟子陶沫既严格又护短。', '收养陶沫的人，既是师父也是唯一的亲人', '');
       return;
     }
     // 如果当前世界是空的旧默认世界，也升级为群像
@@ -134,6 +135,8 @@ const App = {
         characterSetting: '婴儿时期被抛弃，幼时被师尊收养为徒。性格坚韧内敛，处变不惊。',
         protagonistName: '陶沫',
       });
+      // 默认角色卡：师尊
+      Store.addCharacter('师尊', '落霞山掌门', '气质清冷，外表淡漠但内心关切。修行数百年的高人，话不多但每句都有分量。对弟子陶沫既严格又护短。', '收养陶沫的人，既是师父也是唯一的亲人', '');
       this.updateWorldName();
     }
     if (!Store.getCurrentWorldId()) {
