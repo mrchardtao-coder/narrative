@@ -31,6 +31,7 @@ const App = {
       btnProtagonistAvatar: q('#btn-protagonist-avatar'),
       npcCount: q('#npc-count'), btnOpenCharacters: q('#btn-open-characters'),
       attentionSlider: q('#attention-slider'), attentionLabel: q('#attention-label'),
+      narratorToggle: q('#narrator-toggle'),
       deepseekKey: q('#deepseek-key'), deepseekModel: q('#deepseek-model'),
       mimoKey: q('#mimo-key'), mimoEndpoint: q('#mimo-endpoint'),
       saveSettings: q('#settings-save'), resetStory: q('#settings-reset'),
@@ -195,6 +196,7 @@ const App = {
     this.renderAvatarPreview(this.els.protagonistAvatarPreview, this.protagonistDataUrl);
     this.els.attentionSlider.value = world ? world.attention : CONFIG.DEFAULT_ATTENTION;
     this.els.attentionLabel.textContent = this.els.attentionSlider.value;
+    this.els.narratorToggle.checked = world ? (world.narratorEnabled !== false) : true;
     this.els.deepseekKey.value = keys.deepseekKey || '';
     this.els.deepseekModel.value = keys.deepseekModel || 'deepseek-v4-pro';
     this.els.mimoKey.value = keys.mimoKey || '';
@@ -228,6 +230,7 @@ const App = {
       name, worldSetting: ws, characterSetting: this.els.characterSetting.value.trim(),
       prologue: this.els.prologueSetting.value.trim(),
       attention: parseInt(this.els.attentionSlider.value),
+      narratorEnabled: this.els.narratorToggle.checked,
       protagonistName: this.els.protagonistName.value.trim(),
       protagonistAvatar: this.protagonistDataUrl,
     });
@@ -372,7 +375,7 @@ const App = {
       // 记录历史
       Store.appendHistory({ role: 'user', content: userContent });
       Store.appendHistory({ role: 'assistant', content: envNarrative, source: 'narrator' });
-      this.renderChatBubble('narrator', envNarrative);
+      if (world.narratorEnabled !== false) this.renderChatBubble('narrator', envNarrative);
 
       // NPC 独立调用（仅触发与用户直接互动的 NPC，最多 2 个）
       if (characters.length > 0) {
@@ -433,7 +436,7 @@ const App = {
         Store.appendHistory({ role: 'assistant', content: envNarrative, source: 'narrator' });
         if (prologue) this.renderSystemNote('📜 前情提要');
         else this.renderSystemNote('✦ 故事开始 ✦');
-        this.renderChatBubble('narrator', envNarrative);
+        if (world.narratorEnabled !== false) this.renderChatBubble('narrator', envNarrative);
         // 开场不触发 NPC 响应，等用户第一次主动行动后再触发
       }
     } catch (err) {

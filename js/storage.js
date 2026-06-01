@@ -123,6 +123,7 @@ const Store = (() => {
         prologue: '',
         protagonistName: '',
         protagonistAvatar: '',
+        narratorEnabled: true,
         characters: [],
         history: [],
       };
