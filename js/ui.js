@@ -60,9 +60,9 @@ const UI = {
   /* ==================== 事件绑定 ==================== */
   bindAll() {
     const e = this.els;
-    e.openSettings.addEventListener('click', () => Engine.openSettings());
-    e.closeSettings.addEventListener('click', () => Engine.closeSettings());
-    e.saveSettings.addEventListener('click', () => Engine.saveAndStart());
+    e.openSettings.addEventListener('click', () => { try { Engine.openSettings(); } catch(e) { alert('设置:'+e.message); } });
+    e.closeSettings.addEventListener('click', () => { try { Engine.closeSettings(); } catch(e) { alert('关设置:'+e.message); } });
+    e.saveSettings.addEventListener('click', () => { try { Engine.saveAndStart(); } catch(e) { alert('保存:'+e.message); } });
     e.resetStory.addEventListener('click', () => Engine.resetStory());
     e.refreshPage.addEventListener('click', () => location.reload());
     e.overlay.addEventListener('click', ev => { if (ev.target === e.overlay) Engine.closeSettings(); });
@@ -185,6 +185,7 @@ const UI = {
 
   /* ==================== 设置面板 ==================== */
   loadSettingsForm() {
+    try {
     const w = Store.getCurrentWorld();
     const e = this.els;
     e.worldName.value = w ? w.name : '';
@@ -199,6 +200,7 @@ const UI = {
     e.narratorToggle.checked = w ? (w.narratorEnabled !== false) : true;
     this._updateThemeBtns();
     this._updateNpcCount();
+    } catch(e) { alert('加载设置表单出错：'+e.message); }
   },
 
   showSettings() { this.loadSettingsForm(); this.els.overlay.classList.remove('hidden'); },
