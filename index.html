@@ -2,6 +2,23 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <script>
+    // 一次性清理旧 Service Worker 缓存
+    (function() {
+      if (sessionStorage.getItem('_sw_clean')) return;
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          if (regs.length > 0) {
+            return Promise.all(regs.map(r => r.unregister())).then(() => {
+              sessionStorage.setItem('_sw_clean', '1');
+              location.reload();
+            });
+          }
+          sessionStorage.setItem('_sw_clean', '1');
+        });
+      }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
