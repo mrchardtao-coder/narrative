@@ -168,7 +168,8 @@ const Engine = {
 
     } catch (e) {
       UI.removeLoading();
-      UI.systemNote('出错：' + e.message);
+      this._lastFailedInput = userText;
+      UI.systemNote('出错：' + e.message + '（回到前台将自动重试）');
       console.error(e);
     } finally {
       this.isProcessing = false; UI.els.btnSend.disabled = false;
@@ -245,5 +246,14 @@ const Engine = {
 
   regSW() {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+    // 回到前台自动重试
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this._lastFailedInput) {
+        const txt = this._lastFailedInput;
+        this._lastFailedInput = null;
+        UI.els.userInput.value = txt;
+        this.send();
+      }
+    });
   },
 };
