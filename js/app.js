@@ -153,6 +153,14 @@ const App = {
 
   loadWorldState() {
     this.updateWorldName();
+    this.applyTheme(Store.getTheme());
+    // 监听系统主题变化
+    if (!window._themeListenerAdded) {
+      window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+        if (Store.getTheme() === 'system') this.applyTheme('system');
+      });
+      window._themeListenerAdded = true;
+    }
     const world = Store.getCurrentWorld();
     if (!world) return;
     this.renderHistory(world.history);
