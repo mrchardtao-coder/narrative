@@ -218,6 +218,7 @@ const App = {
         characterSetting: this.els.characterSetting.value.trim(),
         prologue: this.els.prologueSetting.value.trim(),
         attention: parseInt(this.els.attentionSlider.value),
+        narratorEnabled: this.els.narratorToggle.checked,
         protagonistName: this.els.protagonistName.value.trim(),
         protagonistAvatar: this.protagonistDataUrl,
       });
@@ -336,6 +337,8 @@ const App = {
   /** 切换旁白显示/隐藏 */
   toggleNarratorVisibility() {
     const enabled = this.els.narratorToggle.checked;
+    const world = Store.getCurrentWorld();
+    if (world) { world.narratorEnabled = enabled; }
     document.querySelectorAll('.narrator-msg').forEach(el => {
       el.style.display = enabled ? '' : 'none';
     });
