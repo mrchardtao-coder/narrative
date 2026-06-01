@@ -96,7 +96,7 @@ const Engine = {
       // 导演生成开场场景
       const script = await API.director(dirCfg, w.worldSetting, w.characters || [], '(故事开始)', [], w.attention);
       if (script.scene) {
-        Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
+        Store.appendHistory({ role: 'assistant', content: script.scene, source: '_scene' });
       }
       UI.renderNewEntries(Store.getHistory(), 0);
     } catch (e) {
@@ -139,9 +139,9 @@ const Engine = {
         script = { scene: '', acts: [] };
       }
 
-      // 导演的场景描述始终显示（替代旁白）
+      // 导演的场景写入历史但不渲染（给 NPC 和记忆用）
       if (script.scene) {
-        Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
+        Store.appendHistory({ role: 'assistant', content: script.scene, source: '_scene' });
       }
 
       // NPC 并行
