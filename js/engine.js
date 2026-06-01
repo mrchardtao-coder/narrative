@@ -139,6 +139,11 @@ const Engine = {
         script = { scene: '', acts: [] };
       }
 
+      // 导演的场景描述始终显示（替代旁白）
+      if (script.scene) {
+        Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
+      }
+
       // NPC 并行
       if (script.acts && script.acts.length > 0) {
         const map = Object.fromEntries(chars.map(c => [c.name, c]));
@@ -153,11 +158,6 @@ const Engine = {
         for (const r of results) {
           if (r && r.content) Store.appendHistory({ role: 'assistant', content: r.content, source: r.id, sourceName: r.name });
         }
-      }
-
-      // 导演的场景描述作为环境提示
-      if (script.scene && !script.acts?.length) {
-        Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
       }
 
       UI.removeLoading();
