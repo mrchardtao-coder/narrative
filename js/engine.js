@@ -104,7 +104,9 @@ const Engine = {
         Store.appendHistory({ role: 'assistant', content: txt, source: 'narrator' });
         if (prologue) UI.systemNote('📜 前情提要');
         else UI.systemNote('✦ 故事开始 ✦');
-        if (w.narratorEnabled !== false) UI._bubble('narrator', txt);
+        // 初始叙事不重复渲染，renderNewEntries 统一处理
+        UI.renderNewEntries(Store.getHistory(), 0);
+        if (w.narratorEnabled === false) UI.toggleNarrator();
       }
     } catch (e) {
       UI.systemNote(`启动失败：${e.message}`);
@@ -177,11 +179,11 @@ const Engine = {
 
       if (env) {
         Store.appendHistory({ role: 'assistant', content: env, source: 'narrator' });
-        if (w.narratorEnabled !== false) UI._bubble('narrator', env);
       }
 
-      // 渲染 NPC（增量）
+      // 渲染所有新条目
       UI.renderNewEntries(Store.getHistory(), start + 1);
+      if (w.narratorEnabled === false) UI.toggleNarrator();
 
       // 4. 记忆提取
       if (chars.length > 0) this._extractMem(dirCfg, chars, env || script.scene, userContent);
