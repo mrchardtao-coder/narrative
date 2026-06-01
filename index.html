@@ -141,9 +141,12 @@
     <label class="settings-label">头像</label>
     <div class="avatar-upload-row"><div id="edit-avatar-preview" class="avatar-preview"></div><button id="btn-edit-avatar" class="btn-outline btn-sm">选择图片</button></div>
     <input type="file" id="edit-avatar-input" accept="image/*" class="hidden-input">
-    <label class="settings-label">身份</label><input type="text" id="edit-role" placeholder="身份 / 职业">
-    <label class="settings-label">人设</label><textarea id="edit-personality" placeholder="性格、背景……"></textarea>
-    <label class="settings-label">与主角的关系</label><input type="text" id="edit-relation" placeholder="例如：主角的师尊">
+    <label class="settings-label">身份</label>
+    <textarea id="edit-role" placeholder="身份 / 职业" rows="2"></textarea>
+    <label class="settings-label">人设</label>
+    <textarea id="edit-personality" placeholder="性格、背景……" rows="4"></textarea>
+    <label class="settings-label">与主角的关系</label>
+    <textarea id="edit-relation" placeholder="例如：主角的师尊" rows="2"></textarea>
     <label class="settings-label" style="margin-top:10px">🤖 使用模型</label>
     <select id="edit-npc-model"><option value="">跟随全局设置</option></select>
     <label class="settings-label">角色记忆 <span class="memory-badge">AI 自动维护</span></label>
