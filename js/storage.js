@@ -93,6 +93,9 @@ const Store = (() => {
       _saveApi();
     },
 
+    /* ---- 工具 ---- */
+    forceSave() { _save(); },
+
     /* ---- 世界 CRUD ---- */
     getWorlds() {
       _load();

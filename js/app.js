@@ -265,7 +265,7 @@ const App = {
 
   /** 根据 source 渲染不同的聊天气泡 */
   renderChatEntry(entry, index, total) {
-    const showBtn = index < total - 1; // 最后一条不显示回退按钮
+    const showBtn = true;
     if (entry.role === 'user') {
       this.renderChatBubble('protagonist', entry.content, null, index, showBtn);
     } else if (entry.source === 'narrator') {
@@ -330,8 +330,18 @@ const App = {
 
   /** 从指定消息索引处截断历史 */
   rollbackFrom(index) {
-    if (!confirm('从此处重置之后的所有对话？世界观和角色设定会保留。')) return;
+    if (!confirm('从此处重置之后的所有对话？世界设定和角色卡保留，NPC记忆将回退。')) return;
     Store.truncateHistory(index + 1);
+    // 回退NPC记忆
+    const world = Store.getCurrentWorld();
+    if (world) {
+      world.characters.forEach(c => c.memory = '');
+      Store.forceSave();
+      const apiKeys = Store.getApiKeys();
+      if (apiKeys.deepseekKey && world.history.length > 0) {
+        this.rebuildMemories(apiKeys, world).catch(() => {});
+      }
+    }
     this.els.storyContent.innerHTML = '';
     this.renderHistory(Store.getHistory());
   },
@@ -344,6 +354,19 @@ const App = {
     document.querySelectorAll('.narrator-msg').forEach(el => {
       el.style.display = enabled ? '' : 'none';
     });
+  },
+
+  /** 回退后异步重建NPC记忆 */
+  async rebuildMemories(apiKeys, world) {
+    try {
+      const historyText = world.history.map(h => `[${h.role}] ${h.content}`).join('\n');
+      const { memoryUpdates } = await API.extractMemory(apiKeys, world.characters, historyText);
+      for (const m of (memoryUpdates || [])) {
+        const c = world.characters.find(x => x.name === m.name);
+        if (c) c.memory = m.newInfo || '';
+      }
+      Store.forceSave();
+    } catch(e) { /* 静默 */ }
   },
 
   scrollToBottom() {
