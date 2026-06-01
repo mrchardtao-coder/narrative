@@ -151,14 +151,14 @@ const Engine = {
         script = { scene: '', acts: [] };
       }
 
-      // 2. NPC 并行
+      // 2. NPC 并行（传原话给每个 NPC）
       if (script.acts && script.acts.length > 0) {
         const map = Object.fromEntries(chars.map(c => [c.name, c]));
         const results = await Promise.all(script.acts.map(async act => {
           const npc = map[act.npc];
           if (!npc) return null;
           const npcCfg = Store.resolveCallParams(Store.getNpcModel(npc.id)) || dirCfg;
-          const ctx = `【场景】${script.scene||''}\n【演出指导】${act.direction}`;
+          const ctx = '【主角刚刚做了什么】' + userText + '\n【导演给的场景】' + (script.scene||'') + '\n【导演给的演出指导】' + act.direction;
           try { const r = await API.npc(npcCfg, npc, ctx, w.attention); return { name: act.npc, content: r, id: npc.id }; }
           catch(e) { return { name: act.npc, content: '', id: npc.id }; }
         }));
