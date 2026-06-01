@@ -136,7 +136,12 @@ const Engine = {
         script = await API.director(dirCfg, w.worldSetting, chars, userText, hist, w.attention);
       } catch(e) {
         console.warn('导演失败:', e.message);
-        script = { scene: '', acts: [] };
+        script = { scene: '（世界沉默了一瞬）', acts: [] };
+      }
+
+      // 如果导演没有任何输出，至少给个场景
+      if (!script.scene && (!script.acts || script.acts.length === 0)) {
+        script.scene = '（世界沉默了一瞬）';
       }
 
       // 导演的场景写入历史并渲染
@@ -144,7 +149,7 @@ const Engine = {
         Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
       }
 
-      // NPC 并行
+      // NPC 并行（兜底：如果导演没安排任何人，也不调用NPC时至少场景已显示）
       if (script.acts && script.acts.length > 0) {
         const map = Object.fromEntries(chars.map(c => [c.name, c]));
         const results = await Promise.all(script.acts.map(async act => {
