@@ -109,7 +109,6 @@ const UI = {
     this.scroll();
   },
   _entry(entry, idx) {
-    if (entry.source === '_scene') return; // 不渲染场景文本
     if (entry.role === 'user') this._bubble('protagonist', entry.content, null, idx);
     else if (entry.source === 'narrator') this._bubble('narrator', entry.content);
     else if (entry.source) this._bubble('npc', entry.content, Store.findCharacterById(entry.source), idx);
