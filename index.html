@@ -58,6 +58,12 @@
     <textarea id="character-setting" placeholder="描述主角的身份、性格……"></textarea>
     <label class="settings-label">主角姓名</label>
     <input type="text" id="protagonist-name" placeholder="主角的名字">
+    <label class="settings-label">主角头像</label>
+    <div class="avatar-upload-row">
+      <div id="protagonist-avatar-preview" class="avatar-preview avatar-protagonist"></div>
+      <button id="btn-protagonist-avatar" class="btn-outline btn-sm">选择图片</button>
+    </div>
+    <input type="file" id="protagonist-avatar-input" accept="image/*" class="hidden-input">
     <label class="settings-label">主题</label>
     <div class="theme-selector">
       <button data-theme="dark" class="active">深色</button>
