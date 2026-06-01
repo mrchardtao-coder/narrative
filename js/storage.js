@@ -1,16 +1,11 @@
 /* ========================================
    本地存储管理 — 缓存版（单例对象）
-   所有世界操作通过 _cache 中唯一对象，避免多解析引用不一致
+   多模型提供者 + 角色独立模型 + 主题
    ======================================== */
 
 const Store = (() => {
   let _cache = null;      // { worlds: [...], currentId: '...' }
-  let _apiCache = null;   // { deepseekKey, mimoKey, mimoEndpoint }
-
-  const _defaultKeys = {
-    deepseekKey: '',
-    mimoKey: '',
-  };
+  let _apiCache = null;   // { providers, directorModel, narratorModel, visionModel, npcModels, theme }
 
   /* ---- 缓存加载 ---- */
   function _load() {
@@ -45,36 +40,64 @@ const Store = (() => {
 
   function _loadApi() {
     if (_apiCache) return;
-    _apiCache = {
-      deepseekKey: localStorage.getItem('narrative_ds_key') || _defaultKeys.deepseekKey,
-      mimoKey: localStorage.getItem('narrative_mimo_key') || _defaultKeys.mimoKey,
-      mimoEndpoint: localStorage.getItem('narrative_mimo_endpoint') || 'https://api.xiaomimimo.com/v1/chat/completions',
-      deepseekModel: localStorage.getItem('narrative_ds_model') || 'deepseek-v4-pro',
-      narratorModel: localStorage.getItem('narrative_narrator_model') || 'deepseek-v4-flash',
-    };
-    // 如果之前存的是旧默认值 deepseek-chat，强制替换为 v4-pro
-    if (_apiCache.deepseekModel === 'deepseek-chat') {
-      _apiCache.deepseekModel = 'deepseek-v4-pro';
-      localStorage.setItem('narrative_ds_model', 'deepseek-v4-pro');
+    try {
+      const raw = localStorage.getItem('narrative_api_settings');
+      if (raw) {
+        _apiCache = JSON.parse(raw);
+      }
+    } catch (e) {}
+    if (!_apiCache) _apiCache = {};
+    // 迁移旧格式: deepseekKey → providers[0]
+    if (!_apiCache.providers || _apiCache.providers.length === 0) {
+      const oldDsKey = localStorage.getItem('narrative_ds_key');
+      const oldMimoKey = localStorage.getItem('narrative_mimo_key');
+      const oldMimoEp = localStorage.getItem('narrative_mimo_endpoint');
+      const oldDsModel = localStorage.getItem('narrative_ds_model') || 'deepseek-v4-pro';
+      const oldNarModel = localStorage.getItem('narrative_narrator_model') || 'deepseek-v4-flash';
+      _apiCache.providers = [];
+      if (oldDsKey) {
+        const id = 'ds_' + Date.now().toString(36);
+        _apiCache.providers.push({
+          id, name: 'DeepSeek', endpoint: 'https://api.deepseek.com/chat/completions',
+          apiKey: oldDsKey, models: [oldDsModel, oldNarModel], authType: 'bearer',
+        });
+        _apiCache.directorModel = { providerId: id, model: 'deepseek-v4-flash' };
+        _apiCache.narratorModel = { providerId: id, model: 'deepseek-v4-flash' };
+      }
+      if (oldMimoKey) {
+        const id = 'mimo_' + Date.now().toString(36);
+        _apiCache.providers.push({
+          id, name: 'MIMO', endpoint: oldMimoEp || 'https://api.xiaomimimo.com/v1/chat/completions',
+          apiKey: oldMimoKey, models: ['mimo-v2.5-pro', 'mimo-v2.5-flash'], authType: 'api-key',
+        });
+        _apiCache.visionModel = { providerId: id, model: 'mimo-v2.5-pro' };
+      }
+      if (!_apiCache.directorModel && _apiCache.providers.length > 0) {
+        const p = _apiCache.providers[0];
+        _apiCache.directorModel = { providerId: p.id, model: p.models[0] || 'deepseek-v4-flash' };
+        _apiCache.narratorModel = { providerId: p.id, model: p.models[0] || 'deepseek-v4-flash' };
+      }
+      if (!_apiCache.visionModel && _apiCache.providers.length > 0) {
+        const p = _apiCache.providers[0];
+        _apiCache.visionModel = { providerId: p.id, model: p.models[0] || 'mimo-v2.5-pro' };
+      }
+      _apiCache.npcModels = _apiCache.npcModels || {};
+      _apiCache.theme = _apiCache.theme || 'dark';
+      _saveApi();
+      // 清理旧键
+      ['narrative_ds_key','narrative_ds_model','narrative_mimo_key','narrative_mimo_endpoint','narrative_narrator_model'].forEach(k => localStorage.removeItem(k));
     }
+    // 确保必要字段
+    _apiCache.npcModels = _apiCache.npcModels || {};
+    _apiCache.theme = _apiCache.theme || 'dark';
   }
 
   function _saveApi() {
     if (!_apiCache) return;
-    localStorage.setItem('narrative_ds_key', _apiCache.deepseekKey);
-    localStorage.setItem('narrative_mimo_key', _apiCache.mimoKey);
-    localStorage.setItem('narrative_mimo_endpoint', _apiCache.mimoEndpoint);
-    localStorage.setItem('narrative_ds_model', _apiCache.deepseekModel);
-    localStorage.setItem('narrative_narrator_model', _apiCache.narratorModel);
+    localStorage.setItem('narrative_api_settings', JSON.stringify(_apiCache));
   }
 
   /* ---- 世界存取 ---- */
-  function _world(idx) {
-    _load();
-    if (idx === undefined || idx < 0 || idx >= _cache.worlds.length) return null;
-    return _cache.worlds[idx];
-  }
-
   function _currentIdx() {
     _load();
     if (!_cache.currentId) return -1;
@@ -82,34 +105,96 @@ const Store = (() => {
   }
 
   return {
-    /* ---- API Keys ---- */
+    /* ---- 多模型提供者 ---- */
+    getProviders() { _loadApi(); return _apiCache.providers || []; },
+    addProvider(name, endpoint, apiKey, authType) {
+      _loadApi();
+      const p = { id: Date.now().toString(36), name, endpoint, apiKey, models: [], authType: authType || 'bearer' };
+      _apiCache.providers.push(p);
+      _saveApi();
+      return p;
+    },
+    updateProvider(id, updates) {
+      _loadApi();
+      const idx = _apiCache.providers.findIndex(p => p.id === id);
+      if (idx === -1) return;
+      Object.assign(_apiCache.providers[idx], updates);
+      _saveApi();
+    },
+    removeProvider(id) {
+      _loadApi();
+      _apiCache.providers = _apiCache.providers.filter(p => p.id !== id);
+      _saveApi();
+    },
+    getProvider(id) {
+      _loadApi();
+      return _apiCache.providers.find(p => p.id === id) || null;
+    },
+
+    /* ---- 模型分配 ---- */
+    getModelAssignment(role) {
+      _loadApi();
+      return _apiCache[role] || null;
+    },
+    setModelAssignment(role, providerId, model) {
+      _loadApi();
+      _apiCache[role] = { providerId, model };
+      _saveApi();
+    },
+    getNpcModel(npcId) {
+      _loadApi();
+      return _apiCache.npcModels[npcId] || null;
+    },
+    setNpcModel(npcId, providerId, model) {
+      _loadApi();
+      _apiCache.npcModels[npcId] = { providerId, model };
+      _saveApi();
+    },
+    removeNpcModel(npcId) {
+      _loadApi();
+      delete _apiCache.npcModels[npcId];
+      _saveApi();
+    },
+
+    /* ---- 解析模型调用参数 ---- */
+    resolveCallParams(assignment, fallbackProviderId) {
+      _loadApi();
+      if (!assignment || !assignment.providerId) {
+        assignment = _apiCache.directorModel;
+      }
+      if (!assignment) return null;
+      const p = _apiCache.providers.find(x => x.id === assignment.providerId);
+      if (!p) return null;
+      return { provider: p, model: assignment.model, authType: p.authType, apiKey: p.apiKey, endpoint: p.endpoint };
+    },
+
+    /* ---- 主题 ---- */
+    getTheme() { _loadApi(); return _apiCache.theme || 'dark'; },
+    setTheme(t) { _loadApi(); _apiCache.theme = t; _saveApi(); },
+
+    /* ---- 兼容旧 getApiKeys ---- */
     getApiKeys() {
       _loadApi();
-      return { ..._apiCache };
-    },
-    saveApiKeys(keys) {
-      _loadApi();
-      Object.assign(_apiCache, keys);
-      _saveApi();
+      const result = {};
+      for (const p of (_apiCache.providers || [])) {
+        result[p.name.toLowerCase() + 'Key'] = p.apiKey;
+        result[p.name.toLowerCase() + 'Endpoint'] = p.endpoint;
+      }
+      const d = _apiCache.directorModel;
+      const n = _apiCache.narratorModel;
+      const v = _apiCache.visionModel;
+      if (d) result.deepseekModel = d.model;
+      if (n) result.narratorModel = n.model;
+      return result;
     },
 
     /* ---- 工具 ---- */
     forceSave() { _save(); },
 
     /* ---- 世界 CRUD ---- */
-    getWorlds() {
-      _load();
-      return _cache.worlds;
-    },
-    getCurrentWorldId() {
-      _load();
-      return _cache.currentId;
-    },
-    setCurrentWorldId(id) {
-      _load();
-      _cache.currentId = id;
-      _save();
-    },
+    getWorlds() { _load(); return _cache.worlds; },
+    getCurrentWorldId() { _load(); return _cache.currentId; },
+    setCurrentWorldId(id) { _load(); _cache.currentId = id; _save(); },
     getCurrentWorld() {
       const idx = _currentIdx();
       return idx >= 0 ? _cache.worlds[idx] : null;
@@ -119,16 +204,10 @@ const Store = (() => {
       _load();
       const world = {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-        name: name || '新世界',
-        worldSetting: worldSetting || '',
-        characterSetting: characterSetting || '',
-        attention: attention || 5,
-        prologue: '',
-        protagonistName: '',
-        protagonistAvatar: '',
-        narratorEnabled: true,
-        characters: [],
-        history: [],
+        name: name || '新世界', worldSetting: worldSetting || '',
+        characterSetting: characterSetting || '', attention: attention || 5,
+        prologue: '', protagonistName: '', protagonistAvatar: '',
+        narratorEnabled: true, characters: [], history: [],
       };
       _cache.worlds.push(world);
       _cache.currentId = world.id;
@@ -153,23 +232,21 @@ const Store = (() => {
     },
 
     /* ---- 角色卡 ---- */
-    getCharacters() {
-      const w = this.getCurrentWorld();
-      return w ? w.characters : [];
-    },
-    addCharacter(name, role, personality, relation, avatar, memory) {
+    getCharacters() { const w = this.getCurrentWorld(); return w ? w.characters : []; },
+    addCharacter(name, role, personality, relation, avatar, memory, npcModelId) {
       const w = this.getCurrentWorld();
       if (!w) return null;
       const c = {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
         name, role, personality, relation: relation || '',
         avatar: avatar || '', memory: memory || '',
+        npcModelId: npcModelId || '',
       };
       w.characters.push(c);
       _save();
       return c;
     },
-    updateCharacter(id, name, role, personality, relation, memory, avatar) {
+    updateCharacter(id, name, role, personality, relation, memory, avatar, npcModelId) {
       const w = this.getCurrentWorld();
       if (!w) return;
       const idx = w.characters.findIndex(c => c.id === id);
@@ -179,6 +256,7 @@ const Store = (() => {
         name, role, personality, relation: relation || '',
         memory: memory !== undefined ? memory : w.characters[idx].memory,
         avatar: avatar !== undefined ? avatar : w.characters[idx].avatar,
+        npcModelId: npcModelId !== undefined ? npcModelId : w.characters[idx].npcModelId,
       };
       _save();
     },
@@ -188,15 +266,10 @@ const Store = (() => {
       w.characters = w.characters.filter(c => c.id !== id);
       _save();
     },
-    findCharacterById(id) {
-      return this.getCharacters().find(c => c.id === id) || null;
-    },
+    findCharacterById(id) { return this.getCharacters().find(c => c.id === id) || null; },
 
     /* ---- 历史 ---- */
-    getHistory() {
-      const w = this.getCurrentWorld();
-      return w ? w.history : [];
-    },
+    getHistory() { const w = this.getCurrentWorld(); return w ? w.history : []; },
     appendHistory(entry) {
       const w = this.getCurrentWorld();
       if (!w) return;
@@ -204,12 +277,7 @@ const Store = (() => {
       if (w.history.length > 300) w.history.splice(0, w.history.length - 300);
       _save();
     },
-    clearHistory() {
-      const w = this.getCurrentWorld();
-      if (!w) return;
-      w.history = [];
-      _save();
-    },
+    clearHistory() { const w = this.getCurrentWorld(); if (!w) return; w.history = []; _save(); },
     truncateHistory(keepCount) {
       const w = this.getCurrentWorld();
       if (!w) return;
@@ -226,14 +294,11 @@ const Store = (() => {
       if (oldWorld || oldHist) {
         try {
           const world = {
-            id: 'migrated_' + Date.now().toString(36),
-            name: '我的世界',
+            id: 'migrated_' + Date.now().toString(36), name: '我的世界',
             worldSetting: oldWorld || '',
             characterSetting: localStorage.getItem('narrative_character') || '',
             attention: parseInt(localStorage.getItem('narrative_attention')) || 5,
-            prologue: '',
-            protagonistName: '',
-            protagonistAvatar: '',
+            prologue: '', protagonistName: '', protagonistAvatar: '',
             characters: (() => {
               try { const c = JSON.parse(localStorage.getItem('narrative_characters')); return Array.isArray(c) ? c.map(x => ({...x, memory: x.memory||'', avatar: x.avatar||''})) : []; } catch(e) { return []; }
             })(),

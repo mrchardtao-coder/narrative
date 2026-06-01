@@ -1,208 +1,128 @@
 /* ========================================
-   API 调用与分流
-   两层架构：
-   1. 环境叙事（含图片分流）— 不涉及 NPC 细节
-   2. NPC 独立演绎 — 每个 NPC 单独调用，完全隔离
-   3. 记忆提取
+   API 调用 — 多模型提供者
    ======================================== */
 
 const API = {
 
   /**
-   * 第一层：环境叙事
-   * 纯文本 → DeepSeek 环境叙事
-   * 含图片 → MIMO 识图 → DeepSeek 环境叙事
+   * 拉取模型列表
    */
-  async narrateEnvironment(apiKeys, worldSetting, characterSetting, attentionLevel, history, userText, imageFile) {
-    let enrichedText = userText;
+  async fetchModels(endpoint, apiKey, authType) {
+    const modelsUrl = endpoint.replace(/\/chat\/completions\/?$/, '/models')
+                              .replace(/\/v1\/?$/, '/models');
+    const headers = { 'Content-Type': 'application/json' };
+    if (authType === 'api-key') headers['api-key'] = apiKey;
+    else headers['Authorization'] = `Bearer ${apiKey}`;
+    try {
+      const res = await fetch(modelsUrl, { method: 'GET', headers, signal: AbortSignal.timeout(10000) });
+      if (!res.ok) return [];
+      const data = await res.json();
+      const models = (data.data || []).map(m => m.id).filter(id => !id.includes('embedding') && !id.includes('rerank'));
+      return models.length > 0 ? models : [];
+    } catch (e) { return []; }
+  },
 
+  /**
+   * 通用调用
+   */
+  async _call(params) {
+    const { endpoint, apiKey, authType, model, messages, max_tokens, temperature, top_p, stream } = params;
+    const headers = { 'Content-Type': 'application/json' };
+    if (authType === 'api-key') headers['api-key'] = apiKey;
+    else headers['Authorization'] = `Bearer ${apiKey}`;
+
+    const body = {
+      model, messages, max_tokens: max_tokens || 500, temperature: temperature ?? 0.85, top_p: top_p ?? 0.95,
+      stream: stream || false,
+    };
+
+    const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) });
+    if (!res.ok) {
+      const err = await res.text().catch(() => '');
+      throw new Error(`API ${res.status}: ${err.slice(0, 200)}`);
+    }
+    const data = await res.json();
+    return data.choices[0].message.content.trim();
+  },
+
+  /**
+   * 导演调用
+   */
+  async callDirector(cfg, worldSetting, characters, userAction, history, attentionLevel) {
+    const msg = PromptBuilder.buildDirectorPrompt(worldSetting, characters, userAction, history, attentionLevel);
+    const text = await this._call({
+      ...cfg, model: cfg.model || 'deepseek-v4-flash',
+      messages: [{ role: 'system', content: msg }],
+      max_tokens: 400, temperature: 0.7,
+    });
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('导演输出格式错误');
+    return JSON.parse(jsonMatch[0]);
+  },
+
+  /**
+   * 环境叙事
+   */
+  async narrateEnvironment(cfg, worldSetting, characterSetting, attentionLevel, history, userMessage, imageFile) {
+    let enrichedText = userMessage;
     if (imageFile) {
-      const imageDesc = await API.describeImage(apiKeys, imageFile, userText);
-      enrichedText = userText
-        ? `[用户上传了一张图片，图片内容描述：${imageDesc}]\n\n${userText}`
-        : `[用户上传了一张图片，图片内容描述：${imageDesc}]`;
+      const visCfg = Store.resolveCallParams(Store.getModelAssignment('visionModel'));
+      if (visCfg) {
+        const desc = await this.describeImage(visCfg, imageFile, userMessage);
+        enrichedText = userMessage ? `${userMessage}\n[图片描述：${desc}]` : `[图片描述：${desc}]`;
+      }
     }
-
-    const messages = PromptBuilder.buildEnvironmentMessages(
-      worldSetting, characterSetting, attentionLevel, history, enrichedText
-    );
-
-    const response = await fetch(CONFIG.DEEPSEEK_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseekKey}` },
-      body: JSON.stringify({
-        model: apiKeys.narratorModel || 'deepseek-v4-flash',
-        messages,
-        max_tokens: 500,
-        temperature: 0.85,
-        top_p: 0.95,
-        frequency_penalty: 0.3,
-        presence_penalty: 0.3,
-      }),
-    });
-
-    if (!response.ok) throw new Error(`DeepSeek 环境叙事错误 (${response.status})`);
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || '';
+    const messages = PromptBuilder.buildEnvironmentMessages(worldSetting, characterSetting, attentionLevel, history, enrichedText);
+    return this._call({ ...cfg, model: cfg.model, messages, max_tokens: 500, temperature: 0.85 });
   },
 
   /**
-   * 导演调用：分析场景，输出舞台剧本
+   * NPC 演绎
    */
-  async callDirector(apiKeys, worldSetting, characters, userAction, history, attentionLevel) {
-    const model = apiKeys.narratorModel || 'deepseek-v4-flash';
-    const messages = [
-      { role: 'system', content: PromptBuilder.buildDirectorPrompt(worldSetting, characters, userAction, history, attentionLevel) },
-    ];
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-
-    try {
-      const response = await fetch('https://api.deepseek.com/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseekKey}` },
-        body: JSON.stringify({
-          model,
-          messages,
-          max_tokens: 400,
-          temperature: 0.7,
-          top_p: 0.95,
-          stream: false,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) throw new Error(`导演调用失败 ${response.status}`);
-      const data = await response.json();
-      const text = data.choices[0].message.content.trim();
-      // 提取 JSON
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('导演输出格式错误');
-      return JSON.parse(jsonMatch[0]);
-    } finally {
-      clearTimeout(timeout);
-    }
-  },
-
-  /**
-   * 第二层：NPC 独立演绎
-   * 每个 NPC 一次独立调用，只含该 NPC 自己的角色卡+记忆+场景
-   * 返回 { name, content }
-   */
-  async narrateNpc(apiKeys, npc, sceneContext, attentionLevel) {
+  async narrateNpc(cfg, npc, sceneContext, attentionLevel) {
     const messages = PromptBuilder.buildNpcMessages(npc, sceneContext, attentionLevel);
-
-    try {
-      const response = await fetch(CONFIG.DEEPSEEK_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseekKey}` },
-        body: JSON.stringify({
-          model: apiKeys.deepseekModel || 'deepseek-v4-pro',
-          messages,
-          max_tokens: 400,
-          temperature: 0.9,
-          top_p: 0.95,
-          frequency_penalty: 0.3,
-          presence_penalty: 0.3,
-        }),
-      });
-
-      if (!response.ok) return { name: npc.name, content: '' };
-      const data = await response.json();
-      return { name: npc.name, content: data.choices?.[0]?.message?.content || '' };
-    } catch (e) {
-      console.warn(`NPC ${npc.name} 调用失败:`, e);
-      return { name: npc.name, content: '' };
-    }
+    return this._call({ ...cfg, model: cfg.model, messages, max_tokens: 400, temperature: 0.9 });
   },
 
   /**
-   * 记忆压缩
+   * MIMO 识图
    */
-  async compressMemory(apiKeys, npc) {
+  async describeImage(cfg, imageFile, userText) {
+    const base64 = await this._fileToBase64(imageFile);
     const messages = [
-      { role: 'system', content: PromptBuilder.buildMemoryCompressPrompt(npc) },
-      { role: 'user', content: '请压缩上述记忆。' }
+      { role: 'user', content: [
+        { type: 'text', text: `请描述这张图片。${userText ? '用户同时说了：' + userText : ''}` },
+        { type: 'image_url', image_url: { url: `data:${imageFile.type};base64,${base64}` } },
+      ]},
     ];
-
-    const response = await fetch(CONFIG.DEEPSEEK_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseekKey}` },
-      body: JSON.stringify({ model: apiKeys.deepseekModel || 'deepseek-v4-pro', messages, max_tokens: 4000, temperature: 0.3 }),
-    });
-
-    if (!response.ok) return npc.memory;
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || npc.memory;
+    return this._call({ ...cfg, model: cfg.model || 'mimo-v2.5-pro', messages, max_tokens: 300, temperature: 0.7 });
   },
 
-  /**
-   * 记忆提取
-   */
-  async extractMemory(apiKeys, characters, lastNarrative, lastUserAction) {
-    if (!characters || characters.length === 0) return { memoryUpdates: [], newCharacters: [] };
-
-    const messages = [
-      { role: 'system', content: PromptBuilder.buildMemoryExtractionPrompt(characters, lastNarrative, lastUserAction) },
-      { role: 'user', content: '请分析并返回 JSON。' }
-    ];
-
-    try {
-      const response = await fetch(CONFIG.DEEPSEEK_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseekKey}` },
-        body: JSON.stringify({ model: apiKeys.deepseekModel || 'deepseek-v4-pro', messages, max_tokens: 2000, temperature: 0.3 }),
-      });
-
-      if (!response.ok) return { memoryUpdates: [], newCharacters: [] };
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || '';
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return { memoryUpdates: [], newCharacters: [] };
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        memoryUpdates: parsed.memoryUpdates || [],
-        newCharacters: parsed.newCharacters || [],
-      };
-    } catch (e) {
-      console.warn('记忆提取失败:', e);
-      return { memoryUpdates: [], newCharacters: [] };
-    }
-  },
-
-  /** MIMO 识图 */
-  async describeImage(apiKeys, imageFile, contextText) {
-    const base64 = await API.fileToBase64(imageFile);
-    const mimeType = imageFile.type || 'image/jpeg';
-
-    const response = await fetch(apiKeys.mimoEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'api-key': apiKeys.mimoKey },
-      body: JSON.stringify({
-        model: CONFIG.MIMO_MODEL,
-        messages: [
-          { role: 'system', content: '你是一个图像描述助手。详细描述图片中的场景、人物、物体、氛围、光线、颜色等视觉信息。用流畅中文叙述，注重细节但不过度解读。' },
-          { role: 'user', content: [
-            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
-            { type: 'text', text: contextText ? `用户正在玩交互式叙事游戏。上下文：${contextText}` : '请描述这张图片。' }
-          ]}
-        ],
-        max_tokens: 500, temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) throw new Error(`MIMO API 错误 (${response.status})`);
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || '(图片描述失败)';
-  },
-
-  fileToBase64(file) {
+  _fileToBase64(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result.split(',')[1]);
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  },
+
+  /**
+   * 记忆提取
+   */
+  async extractMemory(cfg, characters, lastNarrative, lastUserAction) {
+    const msg = PromptBuilder.buildMemoryExtractionPrompt(characters, lastNarrative, lastUserAction);
+    const text = await this._call({ ...cfg, model: cfg.model, messages: [{ role: 'system', content: msg }], max_tokens: 1000, temperature: 0.5 });
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { memoryUpdates: [], newCharacters: [] };
+    return JSON.parse(jsonMatch[0]);
+  },
+
+  /**
+   * 记忆压缩
+   */
+  async compressMemory(cfg, npc) {
+    const msg = PromptBuilder.buildMemoryCompressPrompt(npc);
+    return this._call({ ...cfg, model: cfg.model, messages: [{ role: 'system', content: msg }], max_tokens: 800, temperature: 0.5 });
   },
 };

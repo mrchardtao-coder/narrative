@@ -32,8 +32,12 @@ const App = {
       npcCount: q('#npc-count'), btnOpenCharacters: q('#btn-open-characters'),
       attentionSlider: q('#attention-slider'), attentionLabel: q('#attention-label'),
       narratorToggle: q('#narrator-toggle'),
-      deepseekKey: q('#deepseek-key'), deepseekModel: q('#deepseek-model'),
-      mimoKey: q('#mimo-key'), mimoEndpoint: q('#mimo-endpoint'),
+      themeBtns: q('#settings-overlay').querySelectorAll('.theme-selector button'),
+      btnOpenApi: q('#btn-open-api'),
+      apiOverlay: q('#api-overlay'), apiClose: q('#api-close'), apiProvidersList: q('#api-providers-list'),
+      btnAddProvider: q('#btn-add-provider'),
+      assignDirector: q('#assign-director'), assignNarrator: q('#assign-narrator'), assignVision: q('#assign-vision'),
+      editNpcModel: q('#edit-npc-model'),
       saveSettings: q('#settings-save'), resetStory: q('#settings-reset'),
       refreshPage: q('#settings-refresh'),
       closeSettings: q('#settings-close'), openSettings: q('#open-settings'),
@@ -67,8 +71,6 @@ const App = {
     e.saveSettings.addEventListener('click', () => this.saveAndStart());
     e.resetStory.addEventListener('click', () => this.confirmReset());
     e.refreshPage.addEventListener('click', () => location.reload());
-    e.toggleDsKey.addEventListener('click', () => this.togglePassword(e.deepseekKey, e.toggleDsKey));
-    e.toggleMimoKey.addEventListener('click', () => this.togglePassword(e.mimoKey, e.toggleMimoKey));
     e.overlay.addEventListener('click', ev => { if (ev.target === e.overlay) this.hideSettings(); });
     e.btnOpenCharacters.addEventListener('click', () => this.openCharactersPanel());
     e.charactersBack.addEventListener('click', () => this.closeCharactersPanel());
@@ -86,6 +88,14 @@ const App = {
     e.editAvatarInput.addEventListener('change', ev => this.handleAvatarSelect(ev, 'edit'));
     e.attentionSlider.addEventListener('input', () => { e.attentionLabel.textContent = e.attentionSlider.value; });
     e.narratorToggle.addEventListener('change', () => this.toggleNarratorVisibility());
+    e.themeBtns.forEach(b => b.addEventListener('click', () => this.setTheme(b.dataset.theme)));
+    e.btnOpenApi.addEventListener('click', () => this.openApiPanel());
+    e.apiClose.addEventListener('click', () => this.closeApiPanel());
+    e.btnAddProvider.addEventListener('click', () => this.addProvider());
+    e.assignDirector.addEventListener('change', () => this.saveModelAssignments());
+    e.assignNarrator.addEventListener('change', () => this.saveModelAssignments());
+    e.assignVision.addEventListener('change', () => this.saveModelAssignments());
+    e.apiOverlay.addEventListener('click', ev => { if (ev.target === e.apiOverlay) this.closeApiPanel(); });
     e.btnSend.addEventListener('click', () => this.sendMessage());
     e.userInput.addEventListener('keydown', ev => this.handleInputKeydown(ev));
     e.userInput.addEventListener('input', () => this.autoResizeInput());
@@ -203,10 +213,7 @@ const App = {
     this.els.attentionSlider.value = world ? world.attention : CONFIG.DEFAULT_ATTENTION;
     this.els.attentionLabel.textContent = this.els.attentionSlider.value;
     this.els.narratorToggle.checked = world ? (world.narratorEnabled !== false) : true;
-    this.els.deepseekKey.value = keys.deepseekKey || '';
-    this.els.deepseekModel.value = keys.deepseekModel || 'deepseek-v4-pro';
-    this.els.mimoKey.value = keys.mimoKey || '';
-    this.els.mimoEndpoint.value = keys.mimoEndpoint || '';
+    this.updateThemeBtns();
     this.updateNpcCount(); this.els.overlay.classList.remove('hidden');
   },
 
@@ -386,7 +393,7 @@ const App = {
     if (!userText && !imageFile) return;
 
     const apiKeys = Store.getApiKeys();
-    if (!apiKeys.deepseekKey) { alert('请先填写 DeepSeek API Key。'); this.showSettings(); return; }
+    if (Store.getProviders().length === 0) { alert('请先在 API 设置中添加至少一个模型提供者。'); this.openApiPanel(); return; }
 
     this.isProcessing = true; this.els.btnSend.disabled = true; this.hideWelcome();
 
@@ -403,8 +410,13 @@ const App = {
       const history = Store.getHistory();
       const characters = Store.getCharacters();
 
+      // 解析调用参数
+      const dirCfg = Store.resolveCallParams(Store.getModelAssignment('directorModel'));
+      const narCfg = Store.resolveCallParams(Store.getModelAssignment('narratorModel'));
+      if (!dirCfg || !narCfg) throw new Error('请先在 API 设置中配置模型');
+
       // 1. 导演调用（含近期历史）
-      const script = await API.callDirector(apiKeys, world.worldSetting, characters, userText, history, world.attention);
+      const script = await API.callDirector(dirCfg, world.worldSetting, characters, userText, history, world.attention);
 
       // 录制历史（用户输入先存）
       Store.appendHistory({ role: 'user', content: userContent });
@@ -418,7 +430,8 @@ const App = {
             if (!npc) return { name: act.npc, content: '' };
             const ctx = `【场景】${script.scene || ''}\n【你的演出指导】${act.direction}`;
             try {
-              const r = await API.narrateNpc(apiKeys, npc, ctx, world.attention);
+              const npcCfg = Store.resolveCallParams(Store.getNpcModel(npc.id)) || dirCfg;
+              const r = await API.narrateNpc(npcCfg, npc, ctx, world.attention);
               return { name: act.npc, content: r.content || '', npcId: npc.id };
             } catch(e) { return { name: act.npc, content: '', npcId: npc.id }; }
           })
@@ -441,7 +454,7 @@ const App = {
       const narratorInput = `【场景】${script.scene || ''}\n【已知NPC已作出反应】${npcOutputs.join(' | ')}`;
       const apiHistory = history.map(h => ({ role: h.role, content: h.content }));
       const envNarrative = await API.narrateEnvironment(
-        apiKeys, world.worldSetting, world.characterSetting, world.attention, apiHistory,
+        narCfg, world.worldSetting, world.characterSetting, world.attention, apiHistory,
         narratorInput, null
       );
 
@@ -455,7 +468,7 @@ const App = {
 
       // 5. 提取记忆
       if (characters.length > 0) {
-        this.extractAndSaveMemory(apiKeys, characters, envNarrative || script.scene, userContent);
+        this.extractAndSaveMemory(dirCfg, characters, envNarrative || script.scene, userContent);
       }
     } catch (err) {
       removeLoading(loadingBubble);
@@ -504,7 +517,8 @@ const App = {
 
   async sendInitialPrompt() {
     this.isProcessing = true; this.els.btnSend.disabled = true;
-    const apiKeys = Store.getApiKeys(); const world = Store.getCurrentWorld();
+    const narCfg = Store.resolveCallParams(Store.getModelAssignment('narratorModel'));
+    const world = Store.getCurrentWorld();
     const characters = Store.getCharacters(); const attention = world ? world.attention : CONFIG.DEFAULT_ATTENTION;
     const prologue = world ? (world.prologue || '') : '';
 
@@ -514,7 +528,7 @@ const App = {
         : '（故事开始。请以一段引人入胜的开场叙事引入这个世界和主角的处境。）';
 
       const envNarrative = await API.narrateEnvironment(
-        apiKeys, world.worldSetting, world.characterSetting, attention, [], startPrompt, null
+        narCfg, world.worldSetting, world.characterSetting, attention, [], startPrompt, null
       );
       if (envNarrative) {
         Store.appendHistory({ role: 'user', content: prologue ? `【前情提要】\n${prologue}` : '（故事开始）' });
@@ -537,9 +551,9 @@ const App = {
     return Math.round((text || '').length * CONFIG.MEMORY_CHAR_TO_TOKEN);
   },
 
-  async extractAndSaveMemory(apiKeys, characters, narrative, userAction) {
+  async extractAndSaveMemory(cfg, characters, narrative, userAction) {
     try {
-      const result = await API.extractMemory(apiKeys, characters, narrative, userAction);
+      const result = await API.extractMemory(cfg, characters, narrative, userAction);
       if (!result) return;
       const { memoryUpdates = [], newCharacters = [] } = result;
       for (const update of memoryUpdates) {
@@ -549,7 +563,7 @@ const App = {
         const newMemory = existing ? existing + '\n' + update.newInfo : update.newInfo;
         Store.updateCharacter(c.id, c.name, c.role, c.personality, c.relation, newMemory, c.avatar);
         if (this.estimateTokens(newMemory) >= CONFIG.MEMORY_COMPRESS_THRESHOLD) {
-          this.compressCharacterMemory(apiKeys, { ...c, memory: newMemory });
+          this.compressCharacterMemory(cfg, { ...c, memory: newMemory });
         }
       }
       for (const nc of newCharacters) {
@@ -560,14 +574,116 @@ const App = {
     } catch (e) { console.warn('记忆提取失败:', e); }
   },
 
-  async compressCharacterMemory(apiKeys, npc) {
+  async compressCharacterMemory(cfg, npc) {
     try {
-      const compressed = await API.compressMemory(apiKeys, npc);
+      const compressed = await API.compressMemory(cfg, npc);
       Store.updateCharacter(npc.id, npc.name, npc.role, npc.personality, npc.relation, compressed, npc.avatar);
     } catch (e) { console.warn('记忆压缩失败:', npc.name, e); }
   },
 
-  /* ---- 角色卡管理 ---- */
+  /* ---- 主题 ---- */
+  updateThemeBtns() {
+    const t = Store.getTheme();
+    this.els.themeBtns.forEach(b => b.classList.toggle('active', b.dataset.theme === t));
+    this.applyTheme(t);
+  },
+  setTheme(t) {
+    Store.setTheme(t);
+    this.updateThemeBtns();
+  },
+  applyTheme(t) {
+    const html = document.documentElement;
+    if (t === 'system') {
+      html.classList.toggle('light', window.matchMedia('(prefers-color-scheme: light)').matches);
+    } else {
+      html.classList.toggle('light', t === 'light');
+    }
+  },
+
+  /* ---- API 面板 ---- */
+  openApiPanel() {
+    this.renderApiPanel();
+    this.els.apiOverlay.classList.remove('hidden');
+  },
+  closeApiPanel() { this.els.apiOverlay.classList.add('hidden'); },
+
+  renderApiPanel() {
+    const providers = Store.getProviders();
+    const list = this.els.apiProvidersList;
+    list.innerHTML = providers.map(p => {
+      const models = (p.models || []).map(m => `<span class="model-tag">${m}</span>`).join('') || '<span style="font-size:12px;color:var(--text-muted)">输入 API Key 后点击获取模型</span>';
+      return `<div class="api-provider-card">
+        <div class="api-provider-header"><strong>${p.name}</strong><button data-del="${p.id}">删除</button></div>
+        <div class="api-provider-body">
+          <label>接口地址</label><input type="text" data-id="${p.id}" data-field="endpoint" value="${p.endpoint || ''}" placeholder="https://api.deepseek.com/v1/chat/completions">
+          <label>API Key</label><input type="password" data-id="${p.id}" data-field="apiKey" value="${p.apiKey || ''}" placeholder="sk-...">
+          <label>鉴权方式</label><select data-id="${p.id}" data-field="authType"><option value="bearer" ${p.authType==='bearer'?'selected':''}>Bearer</option><option value="api-key" ${p.authType==='api-key'?'selected':''}>api-key</option></select>
+          <button class="btn-small" data-fetch="${p.id}">🔍 获取模型列表</button>
+          <div class="model-list">${models}</div>
+        </div>
+      </div>`;
+    }).join('');
+    // 绑定事件
+    list.querySelectorAll('button[data-del]').forEach(b => b.addEventListener('click', () => { Store.removeProvider(b.dataset.del); this.renderApiPanel(); }));
+    list.querySelectorAll('button[data-fetch]').forEach(b => b.addEventListener('click', () => this.fetchProviderModels(b.dataset.fetch)));
+    list.querySelectorAll('input, select').forEach(el => {
+      el.addEventListener('change', () => this.updateProviderField(el.dataset.id, el.dataset.field, el.value));
+    });
+    this.renderModelAssignments();
+  },
+
+  updateProviderField(id, field, value) {
+    Store.updateProvider(id, { [field]: value });
+    this.renderApiPanel();
+  },
+
+  async fetchProviderModels(providerId) {
+    const p = Store.getProvider(providerId);
+    if (!p || !p.apiKey) { alert('请先填写 API Key'); return; }
+    const models = await API.fetchModels(p.endpoint, p.apiKey, p.authType);
+    if (models.length === 0) { alert('获取失败，请检查 API Key 和接口地址'); return; }
+    Store.updateProvider(providerId, { models });
+    this.renderApiPanel();
+  },
+
+  addProvider() {
+    Store.addProvider('新提供者', 'https://api.deepseek.com/v1/chat/completions', '', 'bearer');
+    this.renderApiPanel();
+  },
+
+  renderModelAssignments() {
+    const providers = Store.getProviders();
+    const allModels = [];
+    for (const p of providers) {
+      for (const m of (p.models || [])) allModels.push({ label: `${p.name} / ${m}`, providerId: p.id, model: m });
+    }
+    const opts = allModels.map(x => `<option value="${x.providerId}:${x.model}">${x.label}</option>`).join('');
+    [this.els.assignDirector, this.els.assignNarrator, this.els.assignVision].forEach(sel => {
+      sel.innerHTML = opts;
+    });
+    const set = (sel, role) => {
+      const a = Store.getModelAssignment(role);
+      if (a) sel.value = `${a.providerId}:${a.model}`;
+    };
+    set(this.els.assignDirector, 'directorModel');
+    set(this.els.assignNarrator, 'narratorModel');
+    set(this.els.assignVision, 'visionModel');
+  },
+
+  saveModelAssignments() {
+    const parse = v => { const [providerId, ...rest] = v.split(':'); return { providerId, model: rest.join(':') }; };
+    Store.setModelAssignment('directorModel', ...Object.values(parse(this.els.assignDirector.value)));
+    Store.setModelAssignment('narratorModel', ...Object.values(parse(this.els.assignNarrator.value)));
+    Store.setModelAssignment('visionModel', ...Object.values(parse(this.els.assignVision.value)));
+  },
+
+  /* ---- 角色卡模型选择 ---- */
+  populateNpcModelSelect(selectEl, currentValue) {
+    selectEl.innerHTML = '<option value="">跟随全局设置</option>';
+    for (const p of Store.getProviders()) {
+      for (const m of (p.models || [])) selectEl.innerHTML += `<option value="${p.id}:${m}">${p.name} / ${m}</option>`;
+    }
+    selectEl.value = currentValue || '';
   updateNpcCount() {
     const chars = Store.getCharacters();
     this.els.npcCount.textContent = chars.length > 0 ? `${chars.length} 个角色` : '暂无角色';
@@ -601,10 +717,12 @@ const App = {
       e.editRelation.value = c.relation || ''; e.editMemory.value = c.memory || '';
       this.editDataUrl = c.avatar || '';
       e.btnDeleteCharacter.classList.remove('hidden');
+      this.populateNpcModelSelect(e.editNpcModel, c.npcModelId || '');
     } else {
       e.editTitle.textContent = '新建角色卡'; e.editId.value = ''; e.editName.value = '';
       e.editRole.value = ''; e.editPersonality.value = ''; e.editRelation.value = ''; e.editMemory.value = '';
       e.btnDeleteCharacter.classList.add('hidden');
+      this.populateNpcModelSelect(e.editNpcModel, '');
     }
     this.renderAvatarPreview(e.editAvatarPreview, this.editDataUrl);
     this.updateMemoryStats(); e.editOverlay.classList.remove('hidden');
@@ -625,9 +743,9 @@ const App = {
     const relation = e.editRelation.value.trim(); const memory = e.editMemory.value.trim();
     if (!name) { alert('请填写角色姓名'); return; }
     if (id) {
-      Store.updateCharacter(id, name, role, personality, relation, memory, this.editDataUrl);
+      Store.updateCharacter(id, name, role, personality, relation, memory, this.editDataUrl, e.editNpcModel.value);
     } else {
-      Store.addCharacter(name, role, personality, relation, this.editDataUrl, memory);
+      Store.addCharacter(name, role, personality, relation, this.editDataUrl, memory, e.editNpcModel.value);
     }
     this.closeCharacterEdit(); this.renderCharactersList(); this.updateNpcCount();
   },
