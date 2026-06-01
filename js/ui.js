@@ -124,7 +124,8 @@ const UI = {
       const name = w ? (w.protagonistName || '主角') : '主角';
       const av = w ? (w.protagonistAvatar || '') : '';
       const ahtml = av ? '<div class="chat-avatar"><img src="' + av + '" alt=""></div>' : '<div class="chat-avatar">' + name[0] + '</div>';
-      div.innerHTML = ahtml + '<div class="chat-body"><div class="chat-sender">' + esc(name) + '</div><div class="chat-bubble">' + paras + '<button class="chat-edit" data-idx="' + idx + '">✎</button></div></div>';
+      div.innerHTML = ahtml + '<div class="chat-body"><div class="chat-sender">' + esc(name) + '</div><div class="chat-bubble">' + paras + '</div></div>';
+      div.querySelector('.chat-bubble').addEventListener('click', () => Engine.editMessage(idx));
     } else if (type === 'npc' && npc) {
       const ahtml = npc.avatar ? '<div class="chat-avatar"><img src="' + npc.avatar + '" alt=""></div>' : '<div class="chat-avatar">' + npc.name[0] + '</div>';
       div.innerHTML = ahtml + '<div class="chat-body"><div class="chat-sender">' + esc(npc.name) + '</div><div class="chat-bubble">' + paras + '</div></div>';
@@ -132,9 +133,20 @@ const UI = {
       div.innerHTML = '<div class="chat-body"><div class="chat-bubble">' + paras + '</div></div>';
     }
     this.els.storyContent.appendChild(div);
-    const btn = div.querySelector('.chat-edit');
-    if (btn) btn.addEventListener('click', e => { e.stopPropagation(); Engine.editMessage(parseInt(btn.dataset.idx)); });
+    // 分支导航
+    this._renderBranchNav(div, idx);
   },
+  _renderBranchNav(div, idx) {
+    const bs = Store.getBranches().filter(b => b.forkedAt === idx);
+    if (bs.length === 0) return;
+    const nav = document.createElement('div');
+    nav.className = 'branch-nav';
+    nav.innerHTML = '<span class="branch-arrow" data-dir="prev">◂</span><span class="branch-info">1/' + (bs.length + 1) + '</span><span class="branch-arrow" data-dir="next">▸</span>';
+    nav.querySelector('[data-dir=prev]').addEventListener('click', e => { e.stopPropagation(); Engine.cycleBranch(idx, -1); });
+    nav.querySelector('[data-dir=next]').addEventListener('click', e => { e.stopPropagation(); Engine.cycleBranch(idx, 1); });
+    div.appendChild(nav);
+  },
+
   systemNote(text) {
     const d = document.createElement('div'); d.className = 'system-note'; d.textContent = text;
     this.els.storyContent.appendChild(d); this.scroll();

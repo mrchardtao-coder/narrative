@@ -230,6 +230,19 @@ const Engine = {
     if (Store.switchToBranch(branchId)) UI.renderHistory(Store.getHistory());
   },
 
+  /** 循环切换某节点的分支 */
+  async cycleBranch(idx, dir) {
+    const w = Store.getCurrentWorld(); if (!w) return;
+    // 保存当前后续为新分支
+    Store.saveBranch(idx);
+    const bs = Store.getBranches().filter(b => b.forkedAt === idx);
+    if (bs.length === 0) return;
+    // 取第一个分支（最新保存的）恢复
+    const br = bs[bs.length - 1];
+    Store.switchToBranch(br.id);
+    UI.renderHistory(Store.getHistory());
+  },
+
   regSW() {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
   },
