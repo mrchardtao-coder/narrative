@@ -1,50 +1,60 @@
 /* ========================================
    System Prompt 构建器
-   两层架构：环境叙事 + NPC 独立演绎
+   导演管线：导演 → NPC并行 → 旁白收尾
+   设定遵循度对所有模型统一生效
    ======================================== */
 
 const PromptBuilder = {
 
+  /**
+   * 统一设定遵循度指引
+   * 所有模型（导演、NPC、旁白、未来的编剧等）自动包含此指引
+   */
   _attentionGuide(level) {
-    if (level <= 3) return '可以适度偏离设定，让故事自然流动。但核心世界观不能违背。';
-    if (level <= 5) return '叙事中自然融入世界观设定。可引入合理即兴元素。';
-    if (level <= 8) return '叙事必须与世界观紧密相连。每次回应至少呼应一个已有的世界观要素。';
+    const lv = level || 5;
+    if (lv <= 3) return '可以适度偏离设定，让故事自然流动。但核心世界观不能违背。';
+    if (lv <= 5) return '叙事中自然融入世界观设定。可引入合理即兴元素。';
+    if (lv <= 8) return '叙事必须与世界观紧密相连。每次回应至少呼应一个已有的世界观要素。';
     return '世界观是你不可违背的铁律。每个回应必须展示设定对世界的深刻影响。';
   },
 
   /**
    * 导演 Prompt：分析场景，编排 NPC 出场顺序和方向
-   * 上下文超过 250K token 时自动压缩历史
+   * 传入 attentionLevel 控制叙事严格度
    */
-  buildDirectorPrompt(worldSetting, characters, userAction, history) {
+  buildDirectorPrompt(worldSetting, characters, userAction, history, attentionLevel) {
     const charList = characters.map(c =>
       `${c.name}（${c.role}）| 性格摘要：${c.personality.slice(0, 80)}`
     ).join('\n');
 
-    // 构建近期历史，超过阈值自动压缩
-    const MAX_TOKENS = 250000;
+    // 构建近期历史，超过 500K token 自动压缩
+    const MAX_TOKENS = 500000;
     const CHARS_PER_TOKEN = 4;
     let historyText = '';
     if (history && history.length > 0) {
-      const recent = history.slice(-30);
+      const recent = history.slice(-40);
       historyText = recent.map(h => `[${h.role}] ${h.content}`).join('\n');
       const estimatedTokens = historyText.length / CHARS_PER_TOKEN;
       if (estimatedTokens > MAX_TOKENS) {
-        // 压缩：只保留最近 10 条 + 每条的摘要
-        const recent10 = recent.slice(-10);
-        historyText = recent10.map(h => {
+        // 压缩：保留最近 20 条，每条截断到 200 字
+        const compact = recent.slice(-20);
+        historyText = compact.map(h => {
           const content = h.content;
           if (content.length > 200) {
-            return `[${h.role}] ${content.slice(0, 200)}...（已截断）`;
+            return `[${h.role}] ${content.slice(0, 200)}…`;
           }
           return `[${h.role}] ${content}`;
         }).join('\n');
       }
     }
 
+    const guide = this._attentionGuide(attentionLevel);
+
     return `你是一个舞台剧导演。主角刚刚做了一个动作，你需要编排接下来的场景。
 
 【世界观】${worldSetting || '通用世界观'}
+
+【设定遵循度：${attentionLevel}/10】${guide}
 
 【所有角色】
 ${charList}
@@ -73,17 +83,22 @@ ${userAction}
 4. 如果场景中有多个角色，考虑他们互相的影响——第二个角色可以对第一个角色的反应做出回应。
 5. 输出必须严格符合 JSON 格式，不要有任何其他文字。`;
   },
-    const guide = this._attentionGuide(attentionLevel || CONFIG.DEFAULT_ATTENTION);
+
+  /**
+   * 环境叙事 Prompt（旁白）
+   */
+  buildEnvironmentPrompt(worldSetting, characterSetting, attentionLevel) {
+    const guide = this._attentionGuide(attentionLevel);
 
     return `你是一个交互式叙事引擎。你只负责描述环境、氛围、事件推进。你不是任何 NPC，不替任何角色说话。
+
+【设定遵循度：${attentionLevel}/10】${guide}
 
 【世界观设定】
 ${worldSetting || '（未设定）'}
 
 【主角设定】
 ${characterSetting || '（未设定）'}
-
-【设定遵循度：${attentionLevel}/10】${guide}
 
 【核心规则】
 1. 简短。用 2-4 句话描述环境变化和事件推进。
@@ -94,16 +109,19 @@ ${characterSetting || '（未设定）'}
   },
 
   /**
-   * 第二层：NPC 独立演绎 Prompt
-   * 每个 NPC 独立调用，只含该 NPC 的角色卡 + 记忆 + 当前场景
+   * NPC 独立演绎 Prompt
    */
-  buildNpcPrompt(npc, sceneContext) {
+  buildNpcPrompt(npc, sceneContext, attentionLevel) {
+    const guide = this._attentionGuide(attentionLevel);
+
     return `你现在就是${npc.name}。你不是旁白，不是说书人，你就是${npc.name}本人。
 
 【你是谁】
 姓名：${npc.name}
 身份：${npc.role}
 性格：${npc.personality}${npc.relation ? '\n与主角的关系：' + npc.relation : ''}
+
+【设定遵循度：${attentionLevel}/10】${guide}
 
 【你已知的事】
 ${npc.memory || '（你目前还不知道任何特别的事）'}
@@ -114,16 +132,11 @@ ${sceneContext}
 【输出规则——严格遵循】
 1. 你只输出${npc.name}的对话、动作、表情、内心活动。不要描述主角在做什么——主角的行为由玩家决定。
 2. 禁止写"你看到""你察觉""你发现"来描述主角。你不是在叙述故事，你是在扮演自己。
-3. 正确的输出示例：
-   - "她擦了擦吧台，淡淡扫了你一眼：'又来了。'"
-   - "她从柱子后面探出半个脑袋，手里攥着一个油纸包，犹豫着要不要递给你。"
-   - "她没有说话，只是静静站在回廊尽头，目光落在你身上。"
-4. 错误的输出示例（不要这样写）：
-   - "你站在槐树下，感受到清晨的凉意。" ← 这是旁白在描述主角
-   - "你察觉到背后有一道目光。" ← 这是旁白在描述主角
+3. 正确的输出示例：\"（擦了擦吧台，淡淡扫了陶沫一眼）又来了。\"
+4. 错误的输出示例：\"你站在槐树下，感受到清晨的凉意。\"← 这是旁白在描述主角
 5. 如果当前场景与你无关，或者主角没有直接与你互动，你可以保持沉默。沉默时输出空即可。
 6. 如果你的性格沉默寡言，就不要长篇大论。
-7. 直接输出内容，不要加"${npc.name}说："之类的标签。`;
+7. 直接输出内容，不要加\"${npc.name}说：\"之类的标签。`;
   },
 
   /**
@@ -179,13 +192,10 @@ ${lastNarrative}
 }
 
 规则：
-- 【记忆更新】只有当角色在本段剧情中明确在场时，才能记录新信息。如果角色不在场，即使其他角色谈论了他，也不要记录。
-- 【新角色检测】如果本段叙事中出现了有名有姓的、不在上述角色列表中的新人物，在 newCharacters 中列出。从叙事文本中提取 TA 的身份和性格线索。如果叙事信息不足以判断，可以标注"未知"。
-- 【新角色检测】只提取有明确姓名的新角色。路人甲、酒馆里的客人等无名角色不提取。
-- 新信息要详细记录。保留完整的对话内容和观察到的事件细节，不要概括压缩。
-- 只提取本段剧情中「新增」的信息，不要重复角色已有记忆中的旧内容。
-- 每条记录的长度由信息量决定，该详细就详细。
-- 如果本段没有记忆更新，memoryUpdates 为空数组 []。如果没有新角色，newCharacters 为空数组 []。`;
+- 【记忆更新】只有当角色在本段剧情中明确在场时，才能记录新信息。
+- 【新角色检测】只提取有明确姓名的新角色。路人甲不提取。
+- 新信息要详细记录。保留完整的对话内容和观察到的事件细节。
+- 如果本段没有记忆更新，memoryUpdates 为空数组 []。`;
   },
 
   /**
@@ -202,10 +212,10 @@ ${lastNarrative}
   /**
    * 构建 NPC 独立调用 messages
    */
-  buildNpcMessages(npc, sceneContext) {
+  buildNpcMessages(npc, sceneContext, attentionLevel) {
     return [
-      { role: 'system', content: this.buildNpcPrompt(npc, sceneContext) },
-      { role: 'user', content: '（根据当前场景，以你扮演的角色的身份做出反应。如果场景中没有与你直接相关的事，可以保持沉默或只做一个简短的在位描述。）' },
+      { role: 'system', content: this.buildNpcPrompt(npc, sceneContext, attentionLevel) },
+      { role: 'user', content: '（根据当前场景，以你扮演的角色的身份做出反应。如果场景中没有与你直接相关的事，可以保持沉默。）' },
     ];
   },
 };

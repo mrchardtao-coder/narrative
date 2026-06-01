@@ -49,10 +49,10 @@ const API = {
   /**
    * 导演调用：分析场景，输出舞台剧本
    */
-  async callDirector(apiKeys, worldSetting, characters, userAction, history) {
+  async callDirector(apiKeys, worldSetting, characters, userAction, history, attentionLevel) {
     const model = apiKeys.narratorModel || 'deepseek-v4-flash';
     const messages = [
-      { role: 'system', content: PromptBuilder.buildDirectorPrompt(worldSetting, characters, userAction, history) },
+      { role: 'system', content: PromptBuilder.buildDirectorPrompt(worldSetting, characters, userAction, history, attentionLevel) },
     ];
 
     const controller = new AbortController();
@@ -90,8 +90,8 @@ const API = {
    * 每个 NPC 一次独立调用，只含该 NPC 自己的角色卡+记忆+场景
    * 返回 { name, content }
    */
-  async narrateNpc(apiKeys, npc, sceneContext) {
-    const messages = PromptBuilder.buildNpcMessages(npc, sceneContext);
+  async narrateNpc(apiKeys, npc, sceneContext, attentionLevel) {
+    const messages = PromptBuilder.buildNpcMessages(npc, sceneContext, attentionLevel);
 
     try {
       const response = await fetch(CONFIG.DEEPSEEK_API, {

@@ -404,7 +404,7 @@ const App = {
       const characters = Store.getCharacters();
 
       // 1. 导演调用（含近期历史）
-      const script = await API.callDirector(apiKeys, world.worldSetting, characters, userText, history);
+      const script = await API.callDirector(apiKeys, world.worldSetting, characters, userText, history, world.attention);
 
       // 录制历史（用户输入先存）
       Store.appendHistory({ role: 'user', content: userContent });
@@ -418,7 +418,7 @@ const App = {
             if (!npc) return { name: act.npc, content: '' };
             const ctx = `【场景】${script.scene || ''}\n【你的演出指导】${act.direction}`;
             try {
-              const r = await API.narrateNpc(apiKeys, npc, ctx);
+              const r = await API.narrateNpc(apiKeys, npc, ctx, world.attention);
               return { name: act.npc, content: r.content || '', npcId: npc.id };
             } catch(e) { return { name: act.npc, content: '', npcId: npc.id }; }
           })
