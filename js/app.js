@@ -684,6 +684,8 @@ const App = {
       for (const m of (p.models || [])) selectEl.innerHTML += `<option value="${p.id}:${m}">${p.name} / ${m}</option>`;
     }
     selectEl.value = currentValue || '';
+  },
+
   updateNpcCount() {
     const chars = Store.getCharacters();
     this.els.npcCount.textContent = chars.length > 0 ? `${chars.length} 个角色` : '暂无角色';
