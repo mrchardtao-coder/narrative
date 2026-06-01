@@ -10,7 +10,7 @@ const Engine = {
     if (ws.length === 0) {
       const d = DEFAULT_WORLD;
       Store.createWorld(d.name, d.worldSetting, d.characterSetting, CONFIG.DEFAULT_ATTENTION);
-      Store.updateCurrentWorld({ protagonistName: d.protagonistName, prologue: d.prologue });
+      Store.updateCurrentWorld({ protagonistName: d.protagonistName, prologue: d.prologue, protagonistAvatar: d.protagonistAvatar || '' });
       for (const c of d.characters) Store.addCharacter(c.name, c.role, c.personality, c.relation, '');
       return;
     }
@@ -18,7 +18,7 @@ const Engine = {
     const w = Store.getCurrentWorld();
     if (w && !w.worldSetting && !w.characters.length && !w.history.length && (!w.protagonistName || w.name === '我的世界') && typeof DEFAULT_WORLD !== 'undefined') {
       const d = DEFAULT_WORLD;
-      Store.updateCurrentWorld({ name: d.name, worldSetting: d.worldSetting, characterSetting: d.characterSetting, protagonistName: d.protagonistName, prologue: d.prologue });
+      Store.updateCurrentWorld({ name: d.name, worldSetting: d.worldSetting, characterSetting: d.characterSetting, protagonistName: d.protagonistName, prologue: d.prologue, protagonistAvatar: d.protagonistAvatar || '' });
       for (const c of d.characters) Store.addCharacter(c.name, c.role, c.personality, c.relation, '');
       UI.loadWorldState();
     }
