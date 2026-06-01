@@ -96,7 +96,7 @@ const Engine = {
       // 导演生成开场场景
       const script = await API.director(dirCfg, w.worldSetting, w.characters || [], '(故事开始)', [], w.attention);
       if (script.scene) {
-        Store.appendHistory({ role: 'assistant', content: script.scene, source: '_scene' });
+        Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
       }
       UI.renderNewEntries(Store.getHistory(), 0);
     } catch (e) {
@@ -139,9 +139,9 @@ const Engine = {
         script = { scene: '', acts: [] };
       }
 
-      // 导演的场景写入历史但不渲染（给 NPC 和记忆用）
+      // 导演的场景写入历史并渲染
       if (script.scene) {
-        Store.appendHistory({ role: 'assistant', content: script.scene, source: '_scene' });
+        Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
       }
 
       // NPC 并行
@@ -206,6 +206,28 @@ const Engine = {
       const c = await API.compressMemory(cfg, npc);
       Store.updateCharacter(npc.id, npc.name, npc.role, npc.personality, npc.relation, c, npc.avatar);
     } catch(e) {}
+  },
+
+  /** 编辑消息：保存分支、截断、填入输入框 */
+  editMessage(idx) {
+    const hist = Store.getHistory();
+    if (idx < 0 || idx >= hist.length) return;
+    if (hist[idx].role !== 'user') return;
+    if (idx < hist.length - 1) Store.saveBranch(idx);
+    const oldText = hist[idx].content;
+    Store.truncateHistory(idx);
+    UI.els.userInput.value = oldText;
+    UI.els.userInput.style.height = 'auto';
+    UI.els.userInput.style.height = Math.min(UI.els.userInput.scrollHeight, 100) + 'px';
+    UI.els.userInput.focus();
+    const msgs = UI.els.storyContent.querySelectorAll('.chat-message');
+    for (let i = idx; i < msgs.length; i++) msgs[i].remove();
+    UI.renderBranchBar();
+  },
+
+  switchBranch(branchId) {
+    if (!confirm('切换到这条分支？当前进度会保存为一个分支。')) return;
+    if (Store.switchToBranch(branchId)) UI.renderHistory(Store.getHistory());
   },
 
   regSW() {

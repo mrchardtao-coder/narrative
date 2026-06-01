@@ -120,7 +120,7 @@ const Store = (() => {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
         name: name || '新世界', worldSetting: worldSetting || '', characterSetting: characterSetting || '',
         attention: attention || 5, prologue: '', protagonistName: '', protagonistAvatar: '',
-        narratorEnabled: true, characters: [], history: [],
+        narratorEnabled: true, characters: [], history: [], branches: [],
       };
       _data.worlds.push(w);
       _data.currentId = w.id;
@@ -153,7 +153,60 @@ const Store = (() => {
     deleteCharacter(id) { const w = this.getCurrentWorld(); if (!w) return; w.characters = w.characters.filter(c => c.id !== id); sv(); },
     findCharacterById(id) { return this.getCharacters().find(c => c.id === id) || null; },
 
-    /* ——— 历史 ——— */
+    /* ——— 分支 ——— */
+    saveBranch(forkedAt) {
+      const w = this.getCurrentWorld(); if (!w) return null;
+      if (!w.branches) w.branches = [];
+      const branchHist = w.history.slice(forkedAt);
+      if (branchHist.length === 0) return null;
+      const branch = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+        name: '分叉 ' + (w.branches.length + 1),
+        forkedAt,
+        history: branchHist,
+        characters: w.characters.map(c => ({ id: c.id, memory: c.memory || '' })),
+      };
+      w.branches.push(branch);
+      return branch;
+    },
+    deleteBranch(branchId) {
+      const w = this.getCurrentWorld(); if (!w || !w.branches) return;
+      w.branches = w.branches.filter(b => b.id !== branchId);
+    },
+    getBranches() {
+      const w = this.getCurrentWorld();
+      return (w && w.branches) ? w.branches : [];
+    },
+    switchToBranch(branchId) {
+      const w = this.getCurrentWorld(); if (!w || !w.branches) return false;
+      const br = w.branches.find(b => b.id === branchId);
+      if (!br) return false;
+      // 保存当前主线为分支
+      if (w.history.length > 0) {
+        const fork = br.forkedAt;
+        if (w.history.length > fork) {
+          w.branches.push({
+            id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+            name: '返回前',
+            forkedAt: fork,
+            history: w.history.slice(fork),
+            characters: w.characters.map(c => ({ id: c.id, memory: c.memory || '' })),
+          });
+        }
+      }
+      // 切换到目标分支
+      w.history = w.history.slice(0, br.forkedAt).concat(br.history);
+      // 恢复 NPC 记忆
+      if (br.characters) {
+        for (const cs of br.characters) {
+          const c = w.characters.find(x => x.id === cs.id);
+          if (c) c.memory = cs.memory || '';
+        }
+      }
+      w.branches = w.branches.filter(b => b.id !== branchId);
+      sv();
+      return true;
+    },
     getHistory() { const w = this.getCurrentWorld(); return w ? w.history : []; },
     appendHistory(entry) { const w = this.getCurrentWorld(); if (!w) return; w.history.push(entry); if (w.history.length > CONFIG.MAX_HISTORY) w.history.splice(0, w.history.length - CONFIG.MAX_HISTORY); sv(); },
     clearHistory() { const w = this.getCurrentWorld(); if (!w) return; w.history = []; sv(); },

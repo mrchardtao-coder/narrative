@@ -125,16 +125,16 @@ const UI = {
       const name = w ? (w.protagonistName || '主角') : '主角';
       const av = w ? (w.protagonistAvatar || '') : '';
       const ahtml = av ? '<div class="chat-avatar"><img src="' + av + '" alt=""></div>' : '<div class="chat-avatar">' + name[0] + '</div>';
-      div.innerHTML = ahtml + '<div class="chat-body"><div class="chat-sender">' + esc(name) + '</div><div class="chat-bubble">' + paras + '<button class="chat-rollback" data-idx="' + idx + '">↩</button></div></div>';
+      div.innerHTML = ahtml + '<div class="chat-body"><div class="chat-sender">' + esc(name) + '</div><div class="chat-bubble">' + paras + '<button class="chat-edit" data-idx="' + idx + '">✎</button></div></div>';
     } else if (type === 'npc' && npc) {
       const ahtml = npc.avatar ? '<div class="chat-avatar"><img src="' + npc.avatar + '" alt=""></div>' : '<div class="chat-avatar">' + npc.name[0] + '</div>';
-      div.innerHTML = ahtml + '<div class="chat-body"><div class="chat-sender">' + esc(npc.name) + '</div><div class="chat-bubble">' + paras + '<button class="chat-rollback" data-idx="' + idx + '">↩</button></div></div>';
+      div.innerHTML = ahtml + '<div class="chat-body"><div class="chat-sender">' + esc(npc.name) + '</div><div class="chat-bubble">' + paras + '</div></div>';
     } else {
       div.innerHTML = '<div class="chat-body"><div class="chat-bubble">' + paras + '</div></div>';
     }
     this.els.storyContent.appendChild(div);
-    const btn = div.querySelector('.chat-rollback');
-    if (btn) btn.addEventListener('click', e => { e.stopPropagation(); Engine.rollback(parseInt(btn.dataset.idx)); });
+    const btn = div.querySelector('.chat-edit');
+    if (btn) btn.addEventListener('click', e => { e.stopPropagation(); Engine.editMessage(parseInt(btn.dataset.idx)); });
   },
   systemNote(text) {
     const d = document.createElement('div'); d.className = 'system-note'; d.textContent = text;
@@ -229,7 +229,18 @@ const UI = {
     UI.els.currentWorldName.textContent = (Store.getCurrentWorld() || {}).name || '叙事';
     const w = Store.getCurrentWorld(); if (!w) return;
     this.renderHistory(w.history);
+    this.renderBranchBar();
     if (w.worldSetting) this.hideWelcome(); else this.showWelcome();
+  },
+
+  renderBranchBar() {
+    const bs = Store.getBranches();
+    const bar = document.getElementById('branch-bar');
+    if (!bar) return;
+    if (bs.length === 0) { bar.classList.add('hidden'); return; }
+    bar.classList.remove('hidden');
+    bar.innerHTML = '<span style="font-size:11px;color:var(--text-muted)">分支：</span>' + bs.map(b => '<span class="branch-badge" data-bid="' + b.id + '">' + b.name + '</span>').join('');
+    bar.querySelectorAll('.branch-badge').forEach(b => b.addEventListener('click', () => Engine.switchBranch(b.dataset.bid)));
   },
 
   /* ======== 角色卡 ======== */
