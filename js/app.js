@@ -35,6 +35,7 @@ const App = {
       deepseekKey: q('#deepseek-key'), deepseekModel: q('#deepseek-model'),
       mimoKey: q('#mimo-key'), mimoEndpoint: q('#mimo-endpoint'),
       saveSettings: q('#settings-save'), resetStory: q('#settings-reset'),
+      refreshPage: q('#settings-refresh'),
       closeSettings: q('#settings-close'), openSettings: q('#open-settings'),
       toggleDsKey: q('#toggle-deepseek-key'), toggleMimoKey: q('#toggle-mimo-key'),
 
@@ -65,6 +66,7 @@ const App = {
     e.closeSettings.addEventListener('click', () => this.hideSettings());
     e.saveSettings.addEventListener('click', () => this.saveAndStart());
     e.resetStory.addEventListener('click', () => this.confirmReset());
+    e.refreshPage.addEventListener('click', () => location.reload());
     e.toggleDsKey.addEventListener('click', () => this.togglePassword(e.deepseekKey, e.toggleDsKey));
     e.toggleMimoKey.addEventListener('click', () => this.togglePassword(e.mimoKey, e.toggleMimoKey));
     e.overlay.addEventListener('click', ev => { if (ev.target === e.overlay) this.hideSettings(); });
