@@ -141,7 +141,13 @@ const Engine = {
       const chars = Store.getCharacters();
 
       // 1. 导演
-      const script = await API.director(dirCfg, w.worldSetting, chars, userText, hist, w.attention);
+      let script = { scene: '' };
+      try {
+        script = await API.director(dirCfg, w.worldSetting, chars, userText, hist, w.attention);
+      } catch(e) {
+        console.warn('导演失败，跳过NPC直接走旁白:', e.message);
+        script = { scene: '', acts: [] };
+      }
 
       // 2. NPC 并行
       if (script.acts && script.acts.length > 0) {

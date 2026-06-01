@@ -32,9 +32,23 @@ const API = {
   /** 导演 */
   async director(cfg, worldSetting, chars, userAction, history, att) {
     const msg = Prompts.director(worldSetting, chars, userAction, history, att);
-    const text = await this._post(cfg, [{ role: 'system', content: msg }], { max_tokens: 400, temperature: 0.7 });
-    const m = text.match(/\{[\s\S]*\}/); if (!m) throw new Error('导演JSON格式错误');
-    return JSON.parse(m[0]);
+    let text;
+    try {
+      text = await this._post(cfg, [{ role: 'system', content: msg }], { max_tokens: 400, temperature: 0.5 });
+    } catch(e) { throw new Error('导演调用失败: ' + e.message); }
+    // 提取JSON：去掉markdown包裹，找最外层花括号
+    let clean = text.replace(/```json|```/g, '').trim();
+    let m = clean.match(/\{[\s\S]*\}/);
+    if (!m) {
+      // 重试一次
+      try {
+        text = await this._post(cfg, [{ role: 'system', content: msg + '\n\n刚才你输出的不是纯JSON。请重新输出，只要JSON，不要任何解释。' }], { max_tokens: 400, temperature: 0.3 });
+        clean = text.replace(/```json|```/g, '').trim();
+        m = clean.match(/\{[\s\S]*\}/);
+      } catch(e) {}
+    }
+    if (!m) throw new Error('导演输出格式错误');
+    try { return JSON.parse(m[0]); } catch(e) { throw new Error('导演JSON解析失败'); }
   },
 
   /** 旁白 */
