@@ -137,11 +137,11 @@ const UI = {
     this._renderBranchNav(div, idx);
   },
   _renderBranchNav(div, idx) {
-    const bs = Store.getBranches().filter(b => b.forkedAt === idx);
-    if (bs.length === 0) return;
+    const info = Store.branchInfo(idx);
+    if (info.total <= 1) return;
     const nav = document.createElement('div');
     nav.className = 'branch-nav';
-    nav.innerHTML = '<span class="branch-arrow" data-dir="prev">◂</span><span class="branch-info">1/' + (bs.length + 1) + '</span><span class="branch-arrow" data-dir="next">▸</span>';
+    nav.innerHTML = '<span class="branch-arrow" data-dir="prev">◂</span><span class="branch-info">' + info.cur + '/' + info.total + '</span><span class="branch-arrow" data-dir="next">▸</span>';
     nav.querySelector('[data-dir=prev]').addEventListener('click', e => { e.stopPropagation(); Engine.cycleBranch(idx, -1); });
     nav.querySelector('[data-dir=next]').addEventListener('click', e => { e.stopPropagation(); Engine.cycleBranch(idx, 1); });
     div.appendChild(nav);
@@ -240,7 +240,6 @@ const UI = {
     UI.els.currentWorldName.textContent = (Store.getCurrentWorld() || {}).name || '叙事';
     const w = Store.getCurrentWorld(); if (!w) return;
     this.renderHistory(w.history);
-    this.renderBranchBar();
     if (w.worldSetting) this.hideWelcome(); else this.showWelcome();
   },
 
