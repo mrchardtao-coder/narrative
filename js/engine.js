@@ -168,17 +168,19 @@ const Engine = {
         }
       }
 
-      // 3. 旁白
+      // 3. 旁白（关闭时完全跳过 API 调用）
       UI.removeLoading();
-      const npcOut = script.acts
-        ? script.acts.map(a => Store.getHistory().filter(h => h.sourceName === a.npc).pop()?.content || '').filter(Boolean)
-        : [];
-      const narInput = `【场景】${script.scene||''}\n【已知NPC已作出反应】${npcOut.join(' | ')}`;
-      const apiHist = Store.getHistory().map(h => ({ role: h.role, content: h.content }));
-      const env = await API.narrator(narCfg, w.worldSetting, w.characterSetting, w.attention, apiHist, narInput, null);
-
-      if (env) {
-        Store.appendHistory({ role: 'assistant', content: env, source: 'narrator' });
+      let env = null;
+      if (w.narratorEnabled !== false) {
+        const npcOut = script.acts
+          ? script.acts.map(a => Store.getHistory().filter(h => h.sourceName === a.npc).pop()?.content || '').filter(Boolean)
+          : [];
+        const narInput = `【场景】${script.scene||''}\n【已知NPC已作出反应】${npcOut.join(' | ')}`;
+        const apiHist = Store.getHistory().map(h => ({ role: h.role, content: h.content }));
+        env = await API.narrator(narCfg, w.worldSetting, w.characterSetting, w.attention, apiHist, narInput, null);
+        if (env) {
+          Store.appendHistory({ role: 'assistant', content: env, source: 'narrator' });
+        }
       }
 
       // 渲染所有新条目

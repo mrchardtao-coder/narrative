@@ -238,7 +238,9 @@ const UI = {
 
   /* ==================== 旁白切换 ==================== */
   toggleNarrator() {
-    const en = this.els.narratorToggle.checked;
+    const w = Store.getCurrentWorld();
+    const en = w ? (w.narratorEnabled !== false) : true;
+    this.els.narratorToggle.checked = en;
     document.querySelectorAll('.narrator-msg').forEach(el => { el.style.display = en ? '' : 'none'; });
   },
 
