@@ -83,6 +83,7 @@ const App = {
     e.btnEditAvatar.addEventListener('click', () => e.editAvatarInput.click());
     e.editAvatarInput.addEventListener('change', ev => this.handleAvatarSelect(ev, 'edit'));
     e.attentionSlider.addEventListener('input', () => { e.attentionLabel.textContent = e.attentionSlider.value; });
+    e.narratorToggle.addEventListener('change', () => this.toggleNarratorVisibility());
     e.btnSend.addEventListener('click', () => this.sendMessage());
     e.userInput.addEventListener('keydown', ev => this.handleInputKeydown(ev));
     e.userInput.addEventListener('input', () => this.autoResizeInput());
@@ -143,6 +144,9 @@ const App = {
     const world = Store.getCurrentWorld();
     if (!world) return;
     this.renderHistory(world.history);
+    if (world.narratorEnabled === false) {
+      document.querySelectorAll('.narrator-msg').forEach(el => el.style.display = 'none');
+    }
     if (world.worldSetting) this.hideWelcome();
   },
 
@@ -276,6 +280,7 @@ const App = {
   renderChatBubble(type, content, npc, index, showBtn) {
     const div = document.createElement('div');
     div.className = `chat-message ${type}`;
+    if (type === 'narrator') div.classList.add('narrator-msg');
 
     if (type === 'protagonist') {
       const world = Store.getCurrentWorld();
@@ -326,6 +331,14 @@ const App = {
     Store.truncateHistory(index + 1);
     this.els.storyContent.innerHTML = '';
     this.renderHistory(Store.getHistory());
+  },
+
+  /** 切换旁白显示/隐藏 */
+  toggleNarratorVisibility() {
+    const enabled = this.els.narratorToggle.checked;
+    document.querySelectorAll('.narrator-msg').forEach(el => {
+      el.style.display = enabled ? '' : 'none';
+    });
   },
 
   scrollToBottom() {
@@ -403,18 +416,23 @@ const App = {
     }
   },
 
-  /** 智能筛选：用户主动提到的 NPC 优先，最多 2 个 */
+  /** 智能筛选：用户提到的 + 环境中有互动迹象的，上限 3 */
   findActiveNpcs(userText, envText, characters) {
-    const keywords = ['对你说', '看着你', '走向你', '对主角', '开口', '说道', '问道'];
+    const keywords = ['对你说', '看着你', '走向你', '开口', '说道', '问道', '朝你', '在你身旁', '在你身后', '在你面前'];
     const mentioned = characters.filter(c => userText.includes(c.name));
-    if (mentioned.length > 0) return mentioned.slice(0, 2);
-    const inScene = characters.filter(c => {
+    const envNpcs = characters.filter(c => {
       if (!envText.includes(c.name)) return false;
       const idx = envText.indexOf(c.name);
       const nearby = envText.substring(Math.max(0, idx - 20), idx + c.name.length + 30);
       return keywords.some(k => nearby.includes(k));
     });
-    return inScene.slice(0, 2);
+    // 合并去重
+    const seen = new Set(mentioned.map(c => c.id));
+    const result = [...mentioned];
+    for (const c of envNpcs) {
+      if (!seen.has(c.id)) { result.push(c); seen.add(c.id); }
+    }
+    return result.slice(0, 3);
   },
 
   async sendInitialPrompt() {
