@@ -120,7 +120,7 @@ const Store = (() => {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
         name: name || '新世界', worldSetting: worldSetting || '', characterSetting: characterSetting || '',
         attention: attention || 5, prologue: '', protagonistName: '', protagonistAvatar: '',
-        narratorEnabled: true, characters: [], history: [], branches: [], branchNums: {},
+        narratorEnabled: true, characters: [], history: [], branches: [],
       };
       _data.worlds.push(w);
       _data.currentId = w.id;
@@ -154,56 +154,73 @@ const Store = (() => {
     findCharacterById(id) { return this.getCharacters().find(c => c.id === id) || null; },
 
     /* ——— 分支 ——— */
+    // 在 idx 处创建分支：把当前 idx 之后的对话存为一个分支，截断历史
     forkAt(idx) {
-      const w = this.getCurrentWorld(); if (!w) return 1;
+      const w = this.getCurrentWorld(); if (!w) return;
       if (!w.branches) w.branches = [];
-      if (!w.branchNums) w.branchNums = {};
-      const curNum = w.branchNums[idx] || 1;
       const cont = w.history.slice(idx);
-      if (cont.length > 0) {
-        w.branches = w.branches.filter(b => !(b.forkedAt === idx && b.branchNum === curNum));
-        w.branches.push({ id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), forkedAt: idx, branchNum: curNum, history: cont, chars: w.characters.map(c=>({id:c.id,memory:c.memory||''})) });
-      }
-      const total = w.branches.filter(b => b.forkedAt === idx).length + 1;
-      w.branchNums[idx] = total;
+      if (cont.length === 0) return;
+      const num = (w.branches.filter(b => b.forkedAt === idx).length) + 1;
+      w.branches.push({
+        id: Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+        forkedAt: idx, branchNum: num, history: cont,
+        chars: w.characters.map(c => ({ id: c.id, memory: c.memory || '' })),
+      });
       w.history = w.history.slice(0, idx);
       sv();
-      return total;
     },
 
+    // 获取某节点的分支信息
     branchInfo(idx) {
       const w = this.getCurrentWorld();
-      if (!w || !w.branches) return { cur: 1, total: 1 };
-      if (!w.branchNums) w.branchNums = {};
-      const cur = w.branchNums[idx] || 1;
-      const total = w.branches.filter(b => b.forkedAt === idx).length + 1;
-      return { cur, total };
+      if (!w || !w.branches) return { cur: 0, total: 0 };
+      const all = w.branches.filter(b => b.forkedAt === idx).length;
+      if (all === 0) return { cur: 0, total: 0 };
+      // 当前在哪个位置：看当前历史从 idx 开始的 hash
+      const curHist = w.history.slice(idx).map(h => h.content).join('|');
+      let cur = 0; // 0 = 当前新分支（未保存的）
+      for (const b of w.branches.filter(b => b.forkedAt === idx)) {
+        const bHist = b.history.map(h => h.content).join('|');
+        if (bHist === curHist) { cur = b.branchNum; break; }
+      }
+      return { cur, total: all + 1 };
     },
 
+    // 循环切换
     cycleBranch(idx, dir) {
       const w = this.getCurrentWorld();
       if (!w || !w.branches) return false;
-      if (!w.branchNums) w.branchNums = {};
-      const cur = w.branchNums[idx] || 1;
-      const all = w.branches.filter(b => b.forkedAt === idx).map(b => b.branchNum).sort((a,b) => a-b);
-      const total = all.length + 1;
-      if (total <= 1) return false;
-      // 保存当前位置
+      // 保存当前后续
       const cont = w.history.slice(idx);
       if (cont.length > 0) {
-        w.branches = w.branches.filter(b => !(b.forkedAt === idx && b.branchNum === cur));
-        w.branches.push({ id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), forkedAt: idx, branchNum: cur, history: cont, chars: w.characters.map(c=>({id:c.id,memory:c.memory||''})) });
+        const info = this.branchInfo(idx);
+        if (info.cur > 0) {
+          // 更新已有分支
+          const old = w.branches.find(b => b.forkedAt === idx && b.branchNum === info.cur);
+          if (old) { old.history = cont; old.chars = w.characters.map(c=>({id:c.id,memory:c.memory||''})); }
+        } else {
+          // 保存为新分支
+          const num = w.branches.filter(b => b.forkedAt === idx).length + 1;
+          w.branches.push({ id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), forkedAt: idx, branchNum: num, history: cont, chars: w.characters.map(c=>({id:c.id,memory:c.memory||''})) });
+        }
       }
-      // 找目标
+      const info = this.branchInfo(idx);
+      if (info.total <= 1) return false;
+      // 找目标分支号
+      const allNums = w.branches.filter(b => b.forkedAt === idx).map(b => b.branchNum).sort((a,b)=>a-b);
+      const curNum = info.cur || 0;
       let target;
-      if (dir < 0) { const prev = all.filter(n => n < cur); target = prev.length > 0 ? prev[prev.length-1] : all[all.length-1]; }
-      else { const next = all.filter(n => n > cur); target = next.length > 0 ? next[0] : all[0]; }
+      if (curNum === 0) {
+        target = dir > 0 ? allNums[0] : allNums[allNums.length-1];
+      } else {
+        const curIdx = allNums.indexOf(curNum);
+        const newIdx = (curIdx + dir + allNums.length) % allNums.length;
+        target = allNums[newIdx];
+      }
       const br = w.branches.find(b => b.forkedAt === idx && b.branchNum === target);
       if (!br) return false;
-      w.history = w.history.slice(0, idx).concat(br.history);
+      w.history = w.history.slice(0, idx).concat(JSON.parse(JSON.stringify(br.history)));
       if (br.chars) for (const cs of br.chars) { const c = w.characters.find(x=>x.id===cs.id); if(c) c.memory=cs.memory||''; }
-      w.branches = w.branches.filter(b => !(b.forkedAt === idx && b.branchNum === target));
-      w.branchNums[idx] = target;
       sv();
       return true;
     },
