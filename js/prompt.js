@@ -14,11 +14,33 @@ const PromptBuilder = {
 
   /**
    * 导演 Prompt：分析场景，编排 NPC 出场顺序和方向
+   * 上下文超过 250K token 时自动压缩历史
    */
-  buildDirectorPrompt(worldSetting, characters, userAction) {
+  buildDirectorPrompt(worldSetting, characters, userAction, history) {
     const charList = characters.map(c =>
       `${c.name}（${c.role}）| 性格摘要：${c.personality.slice(0, 80)}`
     ).join('\n');
+
+    // 构建近期历史，超过阈值自动压缩
+    const MAX_TOKENS = 250000;
+    const CHARS_PER_TOKEN = 4;
+    let historyText = '';
+    if (history && history.length > 0) {
+      const recent = history.slice(-30);
+      historyText = recent.map(h => `[${h.role}] ${h.content}`).join('\n');
+      const estimatedTokens = historyText.length / CHARS_PER_TOKEN;
+      if (estimatedTokens > MAX_TOKENS) {
+        // 压缩：只保留最近 10 条 + 每条的摘要
+        const recent10 = recent.slice(-10);
+        historyText = recent10.map(h => {
+          const content = h.content;
+          if (content.length > 200) {
+            return `[${h.role}] ${content.slice(0, 200)}...（已截断）`;
+          }
+          return `[${h.role}] ${content}`;
+        }).join('\n');
+      }
+    }
 
     return `你是一个舞台剧导演。主角刚刚做了一个动作，你需要编排接下来的场景。
 
@@ -26,6 +48,9 @@ const PromptBuilder = {
 
 【所有角色】
 ${charList}
+
+【近期剧情】
+${historyText || '（故事刚开始）'}
 
 【主角刚刚做了什么】
 ${userAction}

@@ -49,10 +49,10 @@ const API = {
   /**
    * 导演调用：分析场景，输出舞台剧本
    */
-  async callDirector(apiKeys, worldSetting, characters, userAction) {
+  async callDirector(apiKeys, worldSetting, characters, userAction, history) {
     const model = apiKeys.narratorModel || 'deepseek-v4-flash';
     const messages = [
-      { role: 'system', content: PromptBuilder.buildDirectorPrompt(worldSetting, characters, userAction) },
+      { role: 'system', content: PromptBuilder.buildDirectorPrompt(worldSetting, characters, userAction, history) },
     ];
 
     const controller = new AbortController();

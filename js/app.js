@@ -403,8 +403,8 @@ const App = {
       const history = Store.getHistory();
       const characters = Store.getCharacters();
 
-      // 1. 导演调用
-      const script = await API.callDirector(apiKeys, world.worldSetting, characters, userText);
+      // 1. 导演调用（含近期历史）
+      const script = await API.callDirector(apiKeys, world.worldSetting, characters, userText, history);
 
       // 录制历史（用户输入先存）
       Store.appendHistory({ role: 'user', content: userContent });
