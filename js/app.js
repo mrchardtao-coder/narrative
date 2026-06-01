@@ -237,19 +237,29 @@ const App = {
 
   saveAndStart() {
     const name = this.els.worldName.value.trim();
-    const ws = this.els.worldSetting.value.trim(); if (!ws) { alert('请填写世界观'); return; }
+    const ws = this.els.worldSetting.value.trim();
     if (!name) { alert('请填写世界名称'); return; }
-    Store.saveApiKeys({ deepseekKey: this.els.deepseekKey.value.trim(), deepseekModel: this.els.deepseekModel.value.trim() || 'deepseek-v4-pro', mimoKey: this.els.mimoKey.value.trim(), mimoEndpoint: this.els.mimoEndpoint.value.trim() || CONFIG.MIMO_DEFAULT_ENDPOINT });
-    Store.updateCurrentWorld({
-      name, worldSetting: ws, characterSetting: this.els.characterSetting.value.trim(),
-      prologue: this.els.prologueSetting.value.trim(),
-      attention: parseInt(this.els.attentionSlider.value),
-      narratorEnabled: this.els.narratorToggle.checked,
-      protagonistName: this.els.protagonistName.value.trim(),
-      protagonistAvatar: this.protagonistDataUrl,
-    });
+    if (!ws) { alert('请填写世界观'); return; }
+    const world = Store.getCurrentWorld();
+    if (world) {
+      Store.updateCurrentWorld({
+        name, worldSetting: ws, characterSetting: this.els.characterSetting.value.trim(),
+        prologue: this.els.prologueSetting.value.trim(),
+        attention: parseInt(this.els.attentionSlider.value),
+        narratorEnabled: this.els.narratorToggle.checked,
+        protagonistName: this.els.protagonistName.value.trim(),
+        protagonistAvatar: this.protagonistDataUrl,
+      });
+    } else {
+      Store.createWorld(name, ws, this.els.characterSetting.value.trim(), parseInt(this.els.attentionSlider.value));
+    }
     this.updateWorldName(); this.els.overlay.classList.add('hidden'); this.hideWelcome();
-    if (Store.getHistory().length === 0) this.sendInitialPrompt();
+    if (Store.getProviders().length === 0) {
+      alert('请进入 ⚡ API 设置 配置至少一个模型提供者');
+      this.openApiPanel();
+    } else if (Store.getHistory().length === 0) {
+      this.sendInitialPrompt();
+    }
   },
 
   confirmReset() {
