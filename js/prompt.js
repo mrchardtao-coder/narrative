@@ -13,10 +13,41 @@ const PromptBuilder = {
   },
 
   /**
-   * 第一层：环境叙事 Prompt
-   * 不含 NPC 具体信息，AI 只负责描述环境、事件、氛围
+   * 导演 Prompt：分析场景，编排 NPC 出场顺序和方向
    */
-  buildEnvironmentPrompt(worldSetting, characterSetting, attentionLevel) {
+  buildDirectorPrompt(worldSetting, characters, userAction) {
+    const charList = characters.map(c =>
+      `${c.name}（${c.role}）| 性格摘要：${c.personality.slice(0, 80)}`
+    ).join('\n');
+
+    return `你是一个舞台剧导演。主角刚刚做了一个动作，你需要编排接下来的场景。
+
+【世界观】${worldSetting || '通用世界观'}
+
+【所有角色】
+${charList}
+
+【主角刚刚做了什么】
+${userAction}
+
+请以 JSON 格式输出舞台剧本：
+{
+  "scene": "当前场景的一句话描述（光线、位置、氛围）",
+  "acts": [
+    {
+      "npc": "角色名",
+      "direction": "给演员的表演指导：这个角色此刻的状态、情绪、大致要说什么或做什么。不要写具体台词，写方向。"
+    }
+  ]
+}
+
+规则：
+1. 只有主角刚刚直接互动过的角色，或主角行动会直接影响到的角色，才需要出场。没被影响的角色不出场。
+2. 最多 3 幕。按重要性排序。
+3. 每幕的 direction 2-3 句话，描述该角色的反应方向，不要写具体台词。
+4. 如果场景中有多个角色，考虑他们互相的影响——第二个角色可以对第一个角色的反应做出回应。
+5. 输出必须严格符合 JSON 格式，不要有任何其他文字。`;
+  },
     const guide = this._attentionGuide(attentionLevel || CONFIG.DEFAULT_ATTENTION);
 
     return `你是一个交互式叙事引擎。你只负责描述环境、氛围、事件推进。你不是任何 NPC，不替任何角色说话。

@@ -47,6 +47,45 @@ const API = {
   },
 
   /**
+   * 导演调用：分析场景，输出舞台剧本
+   */
+  async callDirector(apiKeys, worldSetting, characters, userAction) {
+    const model = apiKeys.narratorModel || 'deepseek-v4-flash';
+    const messages = [
+      { role: 'system', content: PromptBuilder.buildDirectorPrompt(worldSetting, characters, userAction) },
+    ];
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const response = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseekKey}` },
+        body: JSON.stringify({
+          model,
+          messages,
+          max_tokens: 400,
+          temperature: 0.7,
+          top_p: 0.95,
+          stream: false,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) throw new Error(`导演调用失败 ${response.status}`);
+      const data = await response.json();
+      const text = data.choices[0].message.content.trim();
+      // 提取 JSON
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('导演输出格式错误');
+      return JSON.parse(jsonMatch[0]);
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
+
+  /**
    * 第二层：NPC 独立演绎
    * 每个 NPC 一次独立调用，只含该 NPC 自己的角色卡+记忆+场景
    * 返回 { name, content }

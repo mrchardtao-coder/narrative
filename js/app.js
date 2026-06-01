@@ -378,7 +378,7 @@ const App = {
     return String(text).replace(/[&<>"]/g, c => map[c]);
   },
 
-  /* ---- 消息发送（两层架构 + 聊天气泡）---- */
+  /* ---- 消息发送（导演管线）---- */
   async sendMessage() {
     if (this.isProcessing) return;
     const userText = this.els.userInput.value.trim();
@@ -390,52 +390,75 @@ const App = {
 
     this.isProcessing = true; this.els.btnSend.disabled = true; this.hideWelcome();
 
-    // 展示主角消息
     if (imageFile) this.renderChatBubble('protagonist', userText || '📷');
     else this.renderChatBubble('protagonist', userText);
 
     const userContent = imageFile ? (userText ? `[图片] ${userText}` : '[图片]') : userText;
     this.els.userInput.value = ''; this.autoResizeInput(); this.clearImage();
 
+    const loadingBubble = this.showLoading('世界正在演化...');
+
     try {
       const world = Store.getCurrentWorld();
       const history = Store.getHistory();
       const characters = Store.getCharacters();
-      const attention = world ? world.attention : CONFIG.DEFAULT_ATTENTION;
 
-      // 构建 API 用的 history（不含 source 字段，保持兼容）
-      const apiHistory = history.map(h => ({ role: h.role, content: h.content }));
+      // 1. 导演调用
+      const script = await API.callDirector(apiKeys, world.worldSetting, characters, userText);
 
-      const envNarrative = await API.narrateEnvironment(
-        apiKeys, world.worldSetting, world.characterSetting, attention, apiHistory,
-        userText || '（用户上传了一张图片）', imageFile
-      );
-
-      if (!envNarrative) throw new Error('环境叙事生成失败');
-
-      // 记录历史
+      // 录制历史（用户输入先存）
       Store.appendHistory({ role: 'user', content: userContent });
-      Store.appendHistory({ role: 'assistant', content: envNarrative, source: 'narrator' });
-      if (world.narratorEnabled !== false) this.renderChatBubble('narrator', envNarrative);
 
-      // NPC 独立调用（仅触发与用户直接互动的 NPC，最多 2 个）
-      if (characters.length > 0) {
-        const sceneNpcs = this.findActiveNpcs(userText, envNarrative, characters);
-        if (sceneNpcs.length > 0) {
-          const npcResponses = await Promise.all(
-            sceneNpcs.map(npc => API.narrateNpc(apiKeys, npc, envNarrative))
-          );
-          for (const r of npcResponses) {
-            if (r.content) {
-              const npc = sceneNpcs.find(n => n.name === r.name);
-              Store.appendHistory({ role: 'assistant', content: r.content, source: npc ? npc.id : '', sourceName: r.name });
-              this.renderChatBubble('npc', r.content, npc);
-            }
+      // 2. NPC 并行生成
+      if (script.acts && script.acts.length > 0) {
+        const npcMap = Object.fromEntries(characters.map(c => [c.name, c]));
+        const npcResults = await Promise.all(
+          script.acts.map(async (act) => {
+            const npc = npcMap[act.npc];
+            if (!npc) return { name: act.npc, content: '' };
+            const ctx = `【场景】${script.scene || ''}\n【你的演出指导】${act.direction}`;
+            try {
+              const r = await API.narrateNpc(apiKeys, npc, ctx);
+              return { name: act.npc, content: r.content || '', npcId: npc.id };
+            } catch(e) { return { name: act.npc, content: '', npcId: npc.id }; }
+          })
+        );
+
+        // 按顺序展示 NPC 响应
+        for (const r of npcResults) {
+          if (r.content) {
+            const npc = characters.find(c => c.id === r.npcId);
+            Store.appendHistory({ role: 'assistant', content: r.content, source: npc ? npc.id : '', sourceName: r.name });
           }
         }
-        this.extractAndSaveMemory(apiKeys, characters, envNarrative, userContent);
+      }
+
+      // 3. 旁白收尾
+      removeLoading(loadingBubble);
+      const npcOutputs = script.acts
+        ? script.acts.map(a => Store.getHistory().filter(h => h.sourceName === a.npc).pop()?.content || '').filter(Boolean)
+        : [];
+      const narratorInput = `【场景】${script.scene || ''}\n【已知NPC已作出反应】${npcOutputs.join(' | ')}`;
+      const apiHistory = history.map(h => ({ role: h.role, content: h.content }));
+      const envNarrative = await API.narrateEnvironment(
+        apiKeys, world.worldSetting, world.characterSetting, world.attention, apiHistory,
+        narratorInput, null
+      );
+
+      if (envNarrative) {
+        Store.appendHistory({ role: 'assistant', content: envNarrative, source: 'narrator' });
+        if (world.narratorEnabled !== false) this.renderChatBubble('narrator', envNarrative);
+      }
+
+      // 4. 渲染 NPC（按历史）
+      this.renderHistoryFrom(Store.getHistory(), history.length);
+
+      // 5. 提取记忆
+      if (characters.length > 0) {
+        this.extractAndSaveMemory(apiKeys, characters, envNarrative || script.scene, userContent);
       }
     } catch (err) {
+      removeLoading(loadingBubble);
       console.error('发送失败:', err);
       this.renderSystemNote(`出错了：${err.message}`);
     } finally {
@@ -443,6 +466,22 @@ const App = {
       this.els.userInput.focus(); this.scrollToBottom();
     }
   },
+
+  /** 加载提示 */
+  showLoading(text) {
+    const div = document.createElement('div');
+    div.className = 'loading-bubble';
+    div.innerHTML = `<span class="loading-dots">${this.esc(text)}<span class="dots-anim">...</span></span>`;
+    this.els.storyContent.appendChild(div);
+    this.scrollToBottom();
+    return div;
+  },
+
+  /** 增量渲染新历史 */
+  renderHistoryFrom(history, startIdx) {
+    for (let i = startIdx; i < history.length; i++) {
+      this.renderChatEntry(history[i], i, history.length);
+    }
 
   /** 智能筛选：用户提到的 + 环境中有互动迹象的，上限 3 */
   findActiveNpcs(userText, envText, characters) {

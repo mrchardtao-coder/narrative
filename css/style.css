@@ -1183,6 +1183,42 @@ html, body {
 }
 
 /* ========================================
+   加载提示
+   ======================================== */
+
+.loading-bubble {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.loading-dots {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  padding: 8px 18px;
+  border-radius: 20px;
+  animation: pulse-subtle 1.5s ease-in-out infinite;
+}
+
+.dots-anim::after {
+  content: '';
+  animation: dots 1.5s steps(3, end) infinite;
+}
+
+@keyframes dots {
+  0%   { content: ''; }
+  33%  { content: '.'; }
+  66%  { content: '..'; }
+  100% { content: '...'; }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ========================================
    旁白开关
    ======================================== */
 
