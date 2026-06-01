@@ -93,8 +93,9 @@ const Engine = {
     try {
       const prologue = w.prologue || '';
       const prompt = prologue
-        ? `【前情提要】\n${prologue}\n\n（继续叙事，用开场衔接前情提要）`
-        : '（故事开始。请以一段开场叙事引入世界和主角。）';
+        ? `【前情提要已展示】${prologue}
+【任务】只描述主角当前所处的场景环境（光线、位置、氛围）。2-3句话。不要写主角的行为或想法。`
+        : '【任务】只描述故事开场时主角所处的场景环境。2-3句话。不要写主角的行为或想法。';
 
       const apiHist = [];
       const txt = await API.narrator(cfg, w.worldSetting, w.characterSetting, w.attention, apiHist, prompt, null);
