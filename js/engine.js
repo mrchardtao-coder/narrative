@@ -154,17 +154,10 @@ const Engine = {
         Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
       }
 
-      // NPC 并行（兜底：如果导演没安排任何人，也不调用NPC时至少场景已显示）
+      // NPC 群演（一次 API 调用替代 N 次独立调用）
       if (script.acts && script.acts.length > 0) {
-        const map = Object.fromEntries(chars.map(c => [c.name, c]));
-        const results = await Promise.all(script.acts.map(async act => {
-          const npc = map[act.npc];
-          if (!npc) return null;
-          const npcCfg = Store.resolveCallParams(Store.getNpcModel(npc.id)) || dirCfg;
-          const ctx = '【主角刚刚做了什么】' + userText + '\n【场景】' + (script.scene||'') + '\n【演出指导】' + act.direction;
-          try { const r = await API.npc(npcCfg, npc, ctx, w.attention); return { name: act.npc, content: r, id: npc.id }; }
-          catch(e) { return { name: act.npc, content: '', id: npc.id }; }
-        }));
+        const npcCfg = Store.resolveCallParams(Store.getNpcModel(chars[0]?.id)) || dirCfg;
+        const results = await API.groupNpc(npcCfg, script.acts, chars, script.scene, userText, w.attention);
         for (const r of results) {
           if (r && r.content) Store.appendHistory({ role: 'assistant', content: r.content, source: r.id, sourceName: r.name });
         }

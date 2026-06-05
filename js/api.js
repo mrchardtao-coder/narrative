@@ -44,9 +44,21 @@ const API = {
     try { return JSON.parse(m[0]); } catch(e) { throw new Error('导演JSON解析失败'); }
   },
 
-  async npc(cfg, npc, sceneCtx, att) {
-    const sys = { role: 'system', content: Prompts.npc(npc, sceneCtx, att) };
-    return this._post(cfg, [sys, { role: 'user', content: '根据场景做出反应。可沉默。' }], { max_tokens: 400, temperature: 0.9 });
+  /** NPC 群演 */
+  async groupNpc(cfg, actNpcs, chars, scene, userAction, att) {
+    const msg = Prompts.groupNpc(actNpcs, chars, scene, userAction, att);
+    const text = await this._post(cfg, [{ role: 'system', content: msg }], { max_tokens: 800, temperature: 0.9 });
+    const results = [];
+    const parts = text.split(/\n(?=\[)/);
+    for (const part of parts) {
+      const m = part.match(/^\[(.+?)\]\n?([\s\S]*)/);
+      if (m) { const name = m[1].trim(); const c = chars.find(x => x.name === name); results.push({ name, content: m[2].trim(), id: c ? c.id : '' }); }
+    }
+    if (results.length === 0 && actNpcs.length > 0) {
+      const c = chars.find(x => x.name === actNpcs[0].npc);
+      results.push({ name: actNpcs[0].npc, content: text, id: c ? c.id : '' });
+    }
+    return results;
   },
 
   async describe(cfg, file, userText) {
