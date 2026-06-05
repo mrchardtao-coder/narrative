@@ -136,7 +136,12 @@ const Engine = {
         script = await API.director(dirCfg, w.worldSetting, chars, userText, hist, w.attention);
       } catch(e) {
         console.warn('导演失败:', e.message);
-        script = { scene: '（世界沉默了一瞬）', acts: [] };
+        // 导演完全挂掉时，直接让第一个 NPC 上场
+        if (chars.length > 0) {
+          script = { scene: '', acts: [{ npc: chars[0].name, direction: '主角刚刚做了：' + userText }] };
+        } else {
+          script = { scene: '（世界沉默了一瞬）', acts: [] };
+        }
       }
 
       // 如果导演没有任何输出，至少给个场景
