@@ -1,8 +1,9 @@
 /* ========================================
-   核心引擎 — 导演 + NPC 并行管线
+   引擎 — 导演(flash) → 群演(pro) → 记忆
    ======================================== */
 const Engine = {
   isProcessing: false,
+  _lastFailedInput: null,
 
   ensureWorld() {
     let ws = Store.getWorlds();
@@ -23,102 +24,69 @@ const Engine = {
     if (!Store.getCurrentWorldId() && ws.length > 0) Store.setCurrentWorldId(ws[0].id);
   },
 
+  /* ——— 设置 ——— */
   openSettings() { UI.showSettings(); },
   closeSettings() {
     const w = Store.getCurrentWorld();
-    if (w) {
-      Store.updateCurrentWorld({
-        name: UI.els.worldName.value.trim(),
-        worldSetting: UI.els.worldSetting.value.trim(),
-        characterSetting: UI.els.characterSetting.value.trim(),
-        prologue: UI.els.prologueSetting.value.trim(),
-        attention: parseInt(UI.els.attentionSlider.value),
-        protagonistName: UI.els.protagonistName.value.trim(),
-        protagonistAvatar: UI.protagonistDataUrl,
-      });
-    }
+    if (w) Store.updateCurrentWorld({
+      name: UI.els.worldName.value.trim(), worldSetting: UI.els.worldSetting.value.trim(),
+      characterSetting: UI.els.characterSetting.value.trim(), prologue: UI.els.prologueSetting.value.trim(),
+      attention: parseInt(UI.els.attentionSlider.value), protagonistName: UI.els.protagonistName.value.trim(),
+      protagonistAvatar: UI.protagonistDataUrl,
+    });
     UI.hideSettings();
   },
 
   saveAndStart() {
-    const name = UI.els.worldName.value.trim();
-    const ws = UI.els.worldSetting.value.trim();
+    const name = UI.els.worldName.value.trim(), ws = UI.els.worldSetting.value.trim();
     if (!name) { alert('填世界名称'); return; }
     if (!ws) { alert('填世界观'); return; }
     const w = Store.getCurrentWorld();
-    if (w) {
-      Store.updateCurrentWorld({
-        name, worldSetting: ws,
-        characterSetting: UI.els.characterSetting.value.trim(),
-        prologue: UI.els.prologueSetting.value.trim(),
-        attention: parseInt(UI.els.attentionSlider.value),
-        protagonistName: UI.els.protagonistName.value.trim(),
-        protagonistAvatar: UI.protagonistDataUrl,
-      });
-    } else {
-      Store.createWorld(name, ws, UI.els.characterSetting.value.trim(), parseInt(UI.els.attentionSlider.value));
-    }
-    UI.hideSettings();
-    UI.loadWorldState();
-    if (Store.getProviders().length === 0) {
-      alert('请进入 ⚡ API 设置 配置至少一个模型提供者');
-      UI.openApiPanel();
-    } else if (Store.getHistory().length === 0) {
-      this.startStory();
-    }
+    if (w) Store.updateCurrentWorld({ name, worldSetting: ws, characterSetting: UI.els.characterSetting.value.trim(), prologue: UI.els.prologueSetting.value.trim(), attention: parseInt(UI.els.attentionSlider.value), protagonistName: UI.els.protagonistName.value.trim(), protagonistAvatar: UI.protagonistDataUrl });
+    else Store.createWorld(name, ws, UI.els.characterSetting.value.trim(), parseInt(UI.els.attentionSlider.value));
+    UI.hideSettings(); UI.loadWorldState();
+    if (Store.getProviders().length === 0) { alert('请进入 API 设置配置模型'); UI.openApiPanel(); }
+    else if (Store.getHistory().length === 0) this.startStory();
   },
 
   resetStory() {
     if (!confirm('确定重置？世界设定和角色卡保留。')) return;
     Store.clearHistory();
     for (const c of Store.getCharacters()) Store.updateCharacter(c.id, c.name, c.role, c.personality, c.relation, '', c.avatar);
-    UI.els.storyContent.innerHTML = '';
-    UI.showWelcome();
-    UI.hideSettings();
+    UI.els.storyContent.innerHTML = ''; UI.showWelcome(); UI.hideSettings();
   },
 
+  /* ——— 开篇 ——— */
   async startStory() {
     this.isProcessing = true; UI.els.btnSend.disabled = true;
-    const dirCfg = Store.resolveCallParams(Store.getModelAssignment('directorModel'));
+    const cfg = Store.resolveCallParams(Store.getModelAssignment('directorModel'));
     const w = Store.getCurrentWorld();
-    if (!dirCfg || !w) { this.isProcessing = false; UI.els.btnSend.disabled = false; return; }
+    if (!cfg || !w) { this.isProcessing = false; UI.els.btnSend.disabled = false; return; }
 
     try {
       const prologue = w.prologue || '';
-      if (prologue) {
-        Store.appendHistory({ role: 'user', content: '【前情提要】\n' + prologue });
-        UI.systemNote('📜 前情提要');
-      } else {
-        Store.appendHistory({ role: 'user', content: '（故事开始）' });
-        UI.systemNote('✦ 故事开始 ✦');
-      }
+      if (prologue) { Store.appendHistory({ role: 'user', content: '【前情提要】\n' + prologue }); UI.systemNote('📜 前情提要'); }
+      else { Store.appendHistory({ role: 'user', content: '（故事开始）' }); UI.systemNote('✦ 故事开始 ✦'); }
 
-      // 导演生成开场场景
-      const script = await API.director(dirCfg, w.worldSetting, w.characters || [], '(故事开始)', [], w.attention);
-      if (script.scene) {
-        Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
-      }
+      const script = await API.director(cfg, w.worldSetting, w.characters || [], '(故事开始)', [], w.attention);
+      if (script.scene) Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
       UI.renderNewEntries(Store.getHistory(), 0);
-    } catch (e) {
-      UI.systemNote('启动失败：' + e.message);
-    } finally {
-      this.isProcessing = false; UI.els.btnSend.disabled = false; UI.scroll();
-    }
+    } catch (e) { UI.systemNote('启动失败：' + e.message); }
+    finally { this.isProcessing = false; UI.els.btnSend.disabled = false; UI.scroll(); }
   },
 
   /* ——— 消息发送 ——— */
   async send() {
     if (this.isProcessing) return;
     const userText = UI.els.userInput.value.trim();
-    const imgFile = UI.selectedImage;
-    if (!userText && !imgFile) return;
+    if (!userText && !UI.selectedImage) return;
 
     const dirCfg = Store.resolveCallParams(Store.getModelAssignment('directorModel'));
-    if (!dirCfg) { alert('请先在 API 设置中配置导演模型'); UI.openApiPanel(); return; }
+    if (!dirCfg) { alert('请配置导演模型'); UI.openApiPanel(); return; }
 
     this.isProcessing = true; UI.els.btnSend.disabled = true; UI.hideWelcome();
 
-    const userContent = imgFile ? (userText ? '[图片] ' + userText : '[图片]') : userText;
+    const userContent = UI.selectedImage ? (userText ? '[图片] ' + userText : '[图片]') : userText;
     UI._bubble('protagonist', userContent);
     UI.els.userInput.value = ''; UI.els.userInput.style.height = 'auto'; UI.clearImage();
     Store.appendHistory({ role: 'user', content: userContent });
@@ -131,30 +99,20 @@ const Engine = {
       const hist = Store.getHistory();
       const chars = Store.getCharacters();
 
-      let script = { scene: '' };
-      try {
-        script = await API.director(dirCfg, w.worldSetting, chars, userText, hist, w.attention);
-      } catch(e) {
+      // 1. 导演
+      let script;
+      try { script = await API.director(dirCfg, w.worldSetting, chars, userText, hist, w.attention); }
+      catch (e) {
         console.warn('导演失败:', e.message);
-        // 导演完全挂掉时，直接让第一个 NPC 上场
-        if (chars.length > 0) {
-          script = { scene: '', acts: [{ npc: chars[0].name, direction: '主角刚刚做了：' + userText }] };
-        } else {
-          script = { scene: '（世界沉默了一瞬）', acts: [] };
-        }
+        script = chars.length > 0 ? { scene: '', acts: [{ npc: chars[0].name, direction: '主角：' + userText }] } : { scene: '（世界沉默了一瞬）', acts: [] };
       }
 
-      // 如果导演没有任何输出，至少给个场景
-      if (!script.scene && (!script.acts || script.acts.length === 0)) {
-        script.scene = '（世界沉默了一瞬）';
-      }
+      if (!script.scene && (!script.acts || script.acts.length === 0)) script.scene = '（世界沉默了一瞬）';
 
-      // 导演的场景写入历史并渲染
-      if (script.scene) {
-        Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
-      }
+      // 2. 场景
+      if (script.scene) Store.appendHistory({ role: 'assistant', content: script.scene, source: 'narrator' });
 
-      // NPC 群演（一次 API 调用替代 N 次独立调用）
+      // 3. 群演
       if (script.acts && script.acts.length > 0) {
         const npcCfg = Store.resolveCallParams(Store.getNpcModel(chars[0]?.id)) || dirCfg;
         const results = await API.groupNpc(npcCfg, script.acts, chars, script.scene, userText, w.attention);
@@ -166,13 +124,11 @@ const Engine = {
       UI.removeLoading();
       UI.renderNewEntries(Store.getHistory(), start + 1);
 
-      // 记忆提取
       if (chars.length > 0) this._extractMem(dirCfg, chars, script.scene, userContent);
-
     } catch (e) {
       UI.removeLoading();
       this._lastFailedInput = userText;
-      UI.systemNote('出错：' + e.message + '（回到前台将自动重试）');
+      UI.systemNote('出错：' + e.message + '（回前台自动重试）');
       console.error(e);
     } finally {
       this.isProcessing = false; UI.els.btnSend.disabled = false;
@@ -180,42 +136,10 @@ const Engine = {
     }
   },
 
-  rollback(idx) {
-    if (!confirm('从此处重置后续对话？世界设定和角色卡保留。')) return;
-    Store.truncateHistory(idx + 1);
-    for (const c of Store.getCharacters()) Store.updateCharacter(c.id, c.name, c.role, c.personality, c.relation, '', c.avatar);
-    UI.els.storyContent.innerHTML = '';
-    UI.renderHistory(Store.getHistory());
-  },
-
-  async _extractMem(cfg, chars, narrative, userAction) {
-    try {
-      const { memoryUpdates=[], newCharacters=[] } = await API.extractMemory(cfg, chars, narrative, userAction);
-      for (const u of memoryUpdates) {
-        const c = chars.find(x => x.name === u.name);
-        if (!c || !u.newInfo) continue;
-        const nm = (c.memory ? c.memory+'\n'+u.newInfo : u.newInfo);
-        Store.updateCharacter(c.id, c.name, c.role, c.personality, c.relation, nm, c.avatar);
-        if ((nm||'').length * CONFIG.MEMORY_CHAR_TO_TOKEN >= CONFIG.MEMORY_COMPRESS_THRESHOLD) this._compressMem(cfg, {...c, memory: nm});
-      }
-      for (const nc of newCharacters) {
-        if (!nc.name || Store.getCharacters().find(c => c.name === nc.name)) continue;
-        Store.addCharacter(nc.name, nc.role||'未知', nc.personality||'', nc.relation||'', '');
-      }
-    } catch(e) {}
-  },
-
-  async _compressMem(cfg, npc) {
-    try {
-      const c = await API.compressMemory(cfg, npc);
-      Store.updateCharacter(npc.id, npc.name, npc.role, npc.personality, npc.relation, c, npc.avatar);
-    } catch(e) {}
-  },
-
+  /* ——— 编辑 / 分支 ——— */
   editMessage(idx) {
     const hist = Store.getHistory();
-    if (idx < 0 || idx >= hist.length) return;
-    if (hist[idx].role !== 'user') return;
+    if (idx < 0 || idx >= hist.length || hist[idx].role !== 'user') return;
     Store.forkAt(idx);
     UI.els.userInput.value = hist[idx].content;
     UI.els.userInput.style.height = 'auto';
@@ -228,15 +152,37 @@ const Engine = {
     if (Store.cycleBranch(idx, dir)) UI.renderHistory(Store.getHistory());
   },
 
+  /* ——— 记忆 ——— */
+  async _extractMem(cfg, chars, narrative, userAction) {
+    try {
+      const { memoryUpdates = [], newCharacters = [] } = await API.extractMemory(cfg, chars, narrative, userAction);
+      for (const u of memoryUpdates) {
+        const c = chars.find(x => x.name === u.name);
+        if (!c || !u.newInfo) continue;
+        const nm = (c.memory ? c.memory + '\n' + u.newInfo : u.newInfo);
+        Store.updateCharacter(c.id, c.name, c.role, c.personality, c.relation, nm, c.avatar);
+        if ((nm || '').length * CONFIG.MEMORY_CHAR_TO_TOKEN >= CONFIG.MEMORY_COMPRESS_THRESHOLD) this._compressMem(cfg, { ...c, memory: nm });
+      }
+      for (const nc of newCharacters) {
+        if (!nc.name || Store.getCharacters().find(c => c.name === nc.name)) continue;
+        Store.addCharacter(nc.name, nc.role || '未知', nc.personality || '', nc.relation || '', '');
+      }
+    } catch (e) {}
+  },
+
+  async _compressMem(cfg, npc) {
+    try {
+      const c = await API.compressMemory(cfg, npc);
+      Store.updateCharacter(npc.id, npc.name, npc.role, npc.personality, npc.relation, c, npc.avatar);
+    } catch (e) {}
+  },
+
   regSW() {
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
-    // 回到前台自动重试
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && this._lastFailedInput) {
-        const txt = this._lastFailedInput;
-        this._lastFailedInput = null;
-        UI.els.userInput.value = txt;
-        this.send();
+        const t = this._lastFailedInput; this._lastFailedInput = null;
+        UI.els.userInput.value = t; this.send();
       }
     });
   },
